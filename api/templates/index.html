@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>mytvlog</title>
+</head>
+<body>
+  <h1>programs</h1>
+  {% for id, name, channel_name, start_time, duration, created_at in tv.programs %}
+    <li>{{id}} - {{ name }} - {{channel_name}} - {{start_time}} - {{duration}} - {{created_at}}
+  {% endfor %}
+
+  <h1>recordings</h1>
+  {% for id, program_id, file_name, deleted_at in tv.recordings %}
+    <li>{{ id }} - {{program_id}} - {{deleted_at}}
+  {% endfor %}
+
+  <h1>view_states</h1>
+  {% for program_id, view_state, viewed_at in tv.view_statuses %}
+    <li>{{ program_id }} - {{view_state}} - {{viewed_at}}
+  {% endfor %}
+
+</body>
+</html>
