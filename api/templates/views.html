@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<h1>Views</h1>
+
+<table>
+  <thead>
+    <tr>
+      <td>program_id</td>
+      <td>viewed_at</td><td>name</td><td>created_at</td>
+    </tr>
+  </thead>
+  <tbody>
+  {% for item in views %}
+    <tr>
+      <td><a href="/api/programs/{{ item.program_id }}">{{ item.program_id }}</a></td>
+      <td>{{ item.viewed_at }}</td><td>{{ item.name }}</td><td>{{ item.created_at }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+</html>

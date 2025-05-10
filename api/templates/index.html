@@ -1,24 +1,33 @@
 <!DOCTYPE html>
 <html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <title>mytvlog</title>
-</head>
-<body>
-  <h1>programs</h1>
-  {% for id, name, channel_name, start_time, duration, created_at in tv.programs %}
-    <li>{{id}} - {{ name }} - {{channel_name}} - {{start_time}} - {{duration}} - {{created_at}}
-  {% endfor %}
 
-  <h1>recordings</h1>
-  {% for id, program_id, file_name, deleted_at in tv.recordings %}
-    <li>{{ id }} - {{program_id}} - {{deleted_at}}
-  {% endfor %}
+<title>mytvlog</title>
+<script src="{{ url_for('static', path='marker-plot.js') }}"></script>
+<script>
+  async function setWatched(id) {
+    await fetch('/api/watched', {
+      headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+      body: JSON.stringify({ recording_id: id, move_file: true }),
+    })
+  }
+</script>
 
-  <h1>view_states</h1>
-  {% for program_id, view_state, viewed_at in tv.view_statuses %}
-    <li>{{ program_id }} - {{view_state}} - {{viewed_at}}
-  {% endfor %}
+<a href="/programs">Programs</a>
+<a href="/recordings">Recordings</a>
+<a href="/views">Views</a>
 
-</body>
+<table>
+{% for item in agg %}
+    <tr><td><marker-plot
+      min="{{ item.start_time }}"
+      max="{{ item.start_time + item.duration }}"
+      data="[{{ item.views or '' }}]"
+      width="{{ 5 * 60 * 2 }}">
+    </marker-plot></td>
+    <td>{% for rec_id, watched in rec_zip(item.id) %}<button onclick="setWatched({{ rec_id }})">{{ watched }}</button>{% endfor %}</td>
+    <td>{{ item.start_time_string }}</td><td>{{ item.name }}</td>
+{% endfor %}
+</table>
+
 </html>

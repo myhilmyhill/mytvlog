@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<h1>Recordings</h1>
+
+<table>
+  <thead>
+    <tr>
+      <td>id</td>
+      <td>program_id</td>
+      <td>name</td><td>watched_at</td><td>deleted_at</td>
+    </tr>
+  </thead>
+  <tbody>
+  {% for item in recordings %}
+    <tr>
+      <td><a href="/api/recordings/{{ item.id }}">{{ item.id }}</td>
+      <td><a href="/api/programs/{{ item.program_id }}">{{ item.program_id }}</td>
+      <td>{{ item.name }}</td><td>{{ item.watched_at }}</td><td>{{ item.deleted_at }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+</html>

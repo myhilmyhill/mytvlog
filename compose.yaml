@@ -9,3 +9,12 @@ services:
       - ./docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
     working_dir: /app/api
     command: docker-entrypoint.sh
+    env_file: .env
+
+  poll:
+    image: python:3.12-slim
+    volumes:
+      - ./poll/poll.py:/usr/local/bin/poll.py
+    command: python /usr/local/bin/poll.py
+    env_file: .env
+
