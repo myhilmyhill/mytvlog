@@ -4,10 +4,10 @@ services:
     ports:
       - 8001:80
     volumes:
-      - ./api:/app/api
+      - ./app:/app/app
       - ./db:/app/db
       - ./docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
-    working_dir: /app/api
+    working_dir: /app/app
     command: docker-entrypoint.sh
     env_file: .env
 
