@@ -8,6 +8,9 @@ import os
 def run_job():
     with urllib.request.urlopen(os.environ['poll_status_url'], timeout=10) as res_status:
         status = json.loads(res_status.read().decode())
+        if status["play_status"] == "finished":
+            return
+
         body = {
             "program": {
                 "event_id": status["current_event_id"],
@@ -16,7 +19,7 @@ def run_job():
                 "start_time": status["current_event_start_time"],
                 "duration": status["current_event_duration"]
             },
-            "viewed_at": status["tot"]
+            "viewed_time": status["tot"]
         }
         data = json.dumps(body).encode('utf-8')
         req = urllib.request.Request('http://mytvlog/api/viewed', data=data, method='POST')

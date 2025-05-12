@@ -30,12 +30,12 @@ def convert_timestamp(val):
 
 sqlite3.register_converter("timestamp", convert_timestamp)
 
-recorded_server = os.environ["recorded_server"]
+smb_server = os.environ["smb_server"]
 dst_root = os.environ["dst_root"]
-smb = SMB(os.environ["smb_server"], os.environ["smb_username"], os.environ["smb_password"])
+smb = SMB(smb_server, os.environ["smb_username"], os.environ["smb_password"])
 
 @app.get("/", response_class=HTMLResponse)
-def index(request: Request):
+def digestions(request: Request):
     with sqlite3.connect(DB_PATH, detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES) as con:
         con.row_factory = sqlite3.Row
         cur = con.cursor()
@@ -47,11 +47,12 @@ def index(request: Request):
                     ,
                     group_concat(CASE WHEN watched_at IS NOT NULL THEN 1 ELSE 0 END, ',') AS watcheds
                 FROM recordings
+                WHERE watched_at IS NULL AND deleted_at IS NULL
                 GROUP BY program_id
             )
             , agg_views AS (
-                SELECT program_id, group_concat(viewed_at, ',') AS views
-                FROM view_statuses
+                SELECT program_id, group_concat(viewed_time, ',') AS views
+                FROM views
                 GROUP BY program_id
             )
             SELECT
@@ -65,10 +66,11 @@ def index(request: Request):
             FROM programs
             INNER JOIN agg_recs ON agg_recs.program_id = programs.id
             LEFT OUTER JOIN agg_views ON agg_views.program_id = programs.id
-            ORDER BY programs.start_time DESC
+            ORDER BY programs.start_time
         """)
         agg = cur.fetchall()
-        rec_zip = lambda id: [(x["rec_ids"], x["watcheds"]) for x in agg if x["id"] == id]
+        rec_zip = lambda id: zip(*next([x["rec_ids"].split(","), x["watcheds"].split(",")] for x in agg if x["id"] == id))
+
     return templates.TemplateResponse("index.html", {
         "request": request,
         "agg": agg, "rec_zip": rec_zip
@@ -82,8 +84,8 @@ def programs(request: Request):
 
         cur.execute("""
             WITH agg_views AS (
-                SELECT program_id, group_concat(viewed_at, ',') AS views
-                FROM view_statuses
+                SELECT program_id, group_concat(viewed_time, ',') AS views
+                FROM views
                 GROUP BY program_id
             )
             SELECT id, name, service_id, start_time
@@ -95,7 +97,7 @@ def programs(request: Request):
                 ,
                 agg_views.views
             FROM programs
-            INNER JOIN agg_views ON agg_views.program_id = programs.id
+            LEFT OUTER JOIN agg_views ON agg_views.program_id = programs.id
             ORDER BY start_time DESC
         """)
         programs = cur.fetchall()
@@ -116,6 +118,7 @@ def recordings(request: Request):
                 programs.name, programs.service_id
             FROM recordings
             INNER JOIN programs ON programs.id = recordings.program_id
+            ORDER BY programs.start_time DESC
         """)
         recordings = cur.fetchall()
     return templates.TemplateResponse("recordings.html", {
@@ -130,10 +133,10 @@ def views(request: Request):
         cur = con.cursor()
 
         cur.execute("""
-            SELECT program_id, viewed_at AS "viewed_at [timestamp]", programs.name,
-                view_statuses.created_at AS "created_at [timestamp]"
-            FROM view_statuses
-            INNER JOIN programs ON programs.id = view_statuses.program_id
+            SELECT program_id, viewed_time AS "viewed_time [timestamp]", programs.name,
+                views.created_at AS "created_at [timestamp]"
+            FROM views
+            INNER JOIN programs ON programs.id = views.program_id
             ORDER BY "created_at [timestamp]" DESC
         """)
         views = cur.fetchall()
@@ -180,8 +183,8 @@ def get_or_create_program(con: Connection, program: Program, created_at: datetim
         return id
 
     cur.execute("""
-        INSERT INTO programs (event_id, service_id, name, start_time, duration, created_at, channel_name)
-        VALUES (?, ?, ?, ?, ?, ?, '')
+        INSERT INTO programs (event_id, service_id, name, start_time, duration, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
     """, (
         program.event_id,
         program.service_id,
@@ -194,18 +197,18 @@ def get_or_create_program(con: Connection, program: Program, created_at: datetim
 
 class ViewRequest(BaseModel):
     program: Program
-    viewed_at: datetime
+    viewed_time: datetime
 
 @app.post("/api/viewed")
 def set_viewed(data: ViewRequest):
     with sqlite3.connect(DB_PATH) as con:
-        program_id = get_or_create_program(con, data.program, data.viewed_at)
+        program_id = get_or_create_program(con, data.program, data.viewed_time)
 
         cursor = con.cursor()
         cursor.execute("""
-            INSERT INTO view_statuses (program_id, viewed_at, created_at)
+            INSERT INTO views (program_id, viewed_time, created_at)
             VALUES (?, ?, ?)
-        """, (program_id, data.viewed_at, datetime.now()))
+        """, (program_id, data.viewed_time, datetime.now()))
         con.commit()
         return {}
 
@@ -231,7 +234,7 @@ def set_recorded(data: RecordRequest):
         con.execute("""
             INSERT INTO recordings (program_id, file_path)
             VALUES (?, ?)
-        """, (program_id, f"//{recorded_server}{data.file_path}"))
+        """, (program_id, f"//{smb_server}{data.file_path}"))
 
         con.commit()
         return {}
