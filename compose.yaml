@@ -14,7 +14,8 @@ services:
   poll:
     image: python:3.12-slim
     volumes:
-      - ./poll/poll.py:/usr/local/bin/poll.py
-    command: python /usr/local/bin/poll.py
+      - ./poll:/poll
+    working_dir: /poll
+    command: python poll.py
     env_file: .env
 

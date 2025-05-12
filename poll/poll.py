@@ -5,10 +5,10 @@ from datetime import datetime, timedelta
 import sys
 import os
 
-def run_job():
-    with urllib.request.urlopen(os.environ['poll_status_url'], timeout=10) as res_status:
+def run_job(poll_status_url: str):
+    with urllib.request.urlopen(poll_status_url, timeout=10) as res_status:
         status = json.loads(res_status.read().decode())
-        if status["play_status"] == "finished":
+        if status.get("play_status", "") == "finished":
             return
 
         body = {
@@ -46,7 +46,7 @@ def main():
         sleep_until_next_interval(interval_minutes=5, delay_seconds=10)
         print('Polling', flush=True)
         try:
-            run_job()
+            run_job(os.environ['poll_status_url'])
         except Exception as e:
             print(f"{type(e).__name__}: {e}", flush=True)
 
