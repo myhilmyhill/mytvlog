@@ -12,7 +12,6 @@ from sqlite3 import Connection
 import os
 from .smb import SMB
 
-jst = timezone(timedelta(hours=9))
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
@@ -21,23 +20,25 @@ def get_db_connection():
     DB_PATH = "db/tv.db"
     con = sqlite3.connect(DB_PATH, detect_types=sqlite3.PARSE_COLNAMES)
     con.row_factory = sqlite3.Row
+
+    def adapt_datetime_epoch(val):
+        """Adapt datetime.datetime to Unix timestamp."""
+        return int(val.timestamp())
+
+    sqlite3.register_adapter(datetime, adapt_datetime_epoch)
+
+    def convert_timestamp(val):
+        """Convert Unix epoch timestamp to datetime.datetime object."""
+        return datetime.fromtimestamp(int(val)).astimezone(timezone(timedelta(hours=9)))
+
+    sqlite3.register_converter("timestamp", convert_timestamp)
+
     try:
         yield con
     finally:
         con.close()
+
 DbConnectionDep = Annotated[sqlite3.Connection, Depends(get_db_connection)]
-
-def adapt_datetime_epoch(val):
-    """Adapt datetime.datetime to Unix timestamp."""
-    return int(val.timestamp())
-
-sqlite3.register_adapter(datetime, adapt_datetime_epoch)
-
-def convert_timestamp(val):
-    """Convert Unix epoch timestamp to datetime.datetime object."""
-    return datetime.fromtimestamp(int(val)).astimezone(jst)
-
-sqlite3.register_converter("timestamp", convert_timestamp)
 
 smb_server = os.environ["smb_server"]
 dst_root = os.environ["dst_root"]
@@ -78,10 +79,8 @@ def digestions(request: Request, con: DbConnectionDep):
     agg = cur.fetchall()
     rec_zip = lambda id: zip(*next([x["rec_ids"].split(","), x["watcheds"].split(",")] for x in agg if x["id"] == id))
 
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "agg": agg, "rec_zip": rec_zip
-    })
+    return templates.TemplateResponse(
+        request=request, name="index.html", context={"agg": agg, "rec_zip": rec_zip})
 
 @app.get("/programs", response_class=HTMLResponse)
 def programs(request: Request, con: DbConnectionDep):
@@ -106,10 +105,8 @@ def programs(request: Request, con: DbConnectionDep):
         ORDER BY start_time DESC
     """)
     programs = cur.fetchall()
-    return templates.TemplateResponse("programs.html", {
-        "request": request,
-        "programs": programs
-    })
+    return templates.TemplateResponse(
+        request=request, name="programs.html", context={"programs": programs})
 
 @app.get("/recordings", response_class=HTMLResponse)
 def recordings(request: Request, con: DbConnectionDep):
@@ -124,10 +121,8 @@ def recordings(request: Request, con: DbConnectionDep):
         ORDER BY programs.start_time DESC
     """)
     recordings = cur.fetchall()
-    return templates.TemplateResponse("recordings.html", {
-        "request": request,
-        "recordings": recordings
-    })
+    return templates.TemplateResponse(
+        request=request, name="recordings.html", context={"recordings": recordings})
 
 @app.get("/views", response_class=HTMLResponse)
 def views(request: Request, con: DbConnectionDep):
@@ -141,10 +136,8 @@ def views(request: Request, con: DbConnectionDep):
         ORDER BY "created_at [timestamp]" DESC
     """)
     views = cur.fetchall()
-    return templates.TemplateResponse("views.html", {
-        "request": request,
-        "views": views
-    })
+    return templates.TemplateResponse(
+        request=request, name="views.html", context={"views": views})
 
 
 class Program(BaseModel):
@@ -158,14 +151,14 @@ class Program(BaseModel):
 def get_program(id: int, con: DbConnectionDep):
     cur = con.cursor()
 
-    cur.execute("SELECT * FROM programs WHERE id = :id", (id,))
+    cur.execute("SELECT * FROM programs WHERE id = ?", (id,))
     item = cur.fetchone()
     return item
 
-def get_or_create_program(con: Connection, program: Program, created_at: datetime) -> int:
+def get_or_create_program(con: Connection, program: Program, created_at: datetime, viewed_time: datetime) -> int:
     cur = con.cursor()
     cur.execute("""
-        SELECT id, duration
+        SELECT id, duration, created_at AS "created_at [timestamp]"
         FROM programs
         WHERE event_id = ? AND service_id = ? AND start_time = ?
     """, (
@@ -176,8 +169,8 @@ def get_or_create_program(con: Connection, program: Program, created_at: datetim
     row = cur.fetchone()
 
     if row:
-        id, duration = row
-        if duration > program.duration:
+        id, duration, c = row
+        if duration != program.duration and c < viewed_time:
             cur.execute("UPDATE programs SET duration = ? WHERE id = ?", (program.duration, id))
         return id
 
@@ -200,7 +193,7 @@ class ViewRequest(BaseModel):
 
 @app.post("/api/viewed")
 def set_viewed(data: ViewRequest, con: DbConnectionDep):
-    program_id = get_or_create_program(con, data.program, data.viewed_time)
+    program_id = get_or_create_program(con, data.program, data.viewed_time, data.viewed_time)
 
     cursor = con.cursor()
     cursor.execute("""
@@ -212,7 +205,10 @@ def set_viewed(data: ViewRequest, con: DbConnectionDep):
 
 @app.get("/api/recordings/{id}")
 def get_recorded(id: int, con: DbConnectionDep):
-    cur = con.execute("SELECT * FROM recordings WHERE ID = ?", (id,))
+    cur = con.execute("""
+        SELECT id, program_id, file_path, watched_at AS "watched_at [timestamp]", deleted_at AS "deleted_at [timestamp]"
+        FROM recordings WHERE ID = ?
+    """, (id,))
     item = cur.fetchone()
     return item
 
@@ -223,7 +219,7 @@ class RecordRequest(BaseModel):
 
 @app.post("/api/recorded")
 def set_recorded(data: RecordRequest, con: DbConnectionDep):
-    program_id = get_or_create_program(con, data.program, data.recorded_at)
+    program_id = get_or_create_program(con, data.program, data.recorded_at, data.recorded_at)
 
     con.execute("""
         INSERT INTO recordings (program_id, file_path)
