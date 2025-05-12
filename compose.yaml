@@ -7,7 +7,7 @@ services:
       - ./app:/app/app
       - ./db:/app/db
       - ./docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
-    working_dir: /app/app
+    working_dir: /app
     command: docker-entrypoint.sh
     env_file: .env
 
