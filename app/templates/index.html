@@ -22,7 +22,7 @@
     <tr><td><marker-plot
       min="{{ item.start_time }}"
       max="{{ item.start_time + item.duration }}"
-      data="[{{ item.views or '' }}]"
+      data="{{ item.views or '[]' }}"
       width="{{ 5 * 60 * 2 }}">
     </marker-plot></td>
     <td>

@@ -51,15 +51,15 @@ def digestions(request: Request, con: DbConnectionDep):
     cur.execute("""
         WITH agg_recs AS(
             SELECT
-                program_id, group_concat(id, ',') AS rec_ids
+                program_id, json_group_array(id) AS rec_ids
                 ,
-                group_concat(CASE WHEN watched_at IS NOT NULL THEN 1 ELSE 0 END, ',') AS watcheds
+                json_group_array(CASE WHEN watched_at IS NOT NULL THEN 1 ELSE 0 END) AS watcheds
             FROM recordings
             WHERE watched_at IS NULL AND deleted_at IS NULL
             GROUP BY program_id
         )
         , agg_views AS (
-            SELECT program_id, group_concat(viewed_time, ',') AS views
+            SELECT program_id, json_group_array(viewed_time) AS views
             FROM views
             GROUP BY program_id
         )
@@ -88,7 +88,7 @@ def programs(request: Request, con: DbConnectionDep):
 
     cur.execute("""
         WITH agg_views AS (
-            SELECT program_id, group_concat(viewed_time, ',') AS views
+            SELECT program_id, json_group_array(viewed_time) AS views
             FROM views
             GROUP BY program_id
         )

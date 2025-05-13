@@ -17,7 +17,7 @@
       <td><marker-plot
         min="{{ item.start_time }}"
         max="{{ item.start_time + item.duration }}"
-        data="[{{ item.views }}]"
+        data="{{ item.views or '[]' }}"
         width="{{ 60 * 5 * 2 }}"></marker-plot></td>
       <td><a href="/api/programs/{{ item.id }}">{{ item.id }}</td><td>{{ item.name }}</td><td>{{ item.service_id }}</td><td>{{ item.start_time_str }}</td><td>{{ item.end_time_str }}</td><td>{{ item.created_at }}</td>
     </tr>
