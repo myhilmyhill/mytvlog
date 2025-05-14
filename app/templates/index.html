@@ -1,15 +1,34 @@
-<!DOCTYPE html>
-<html lang="ja">
-
-<title>mytvlog</title>
-<script src="{{ url_for('static', path='marker-plot.js') }}"></script>
+{% extends "base.html" %}
+{% block content %}
 <script>
-  async function setWatched(id) {
-    await fetch('/api/watched', {
+  function $(q) { return document.querySelector(q) }
+  function patch(url, body) {
+    return fetch(url, {
       headers: { 'Content-Type': 'application/json' },
-      method: 'POST',
-      body: JSON.stringify({ recording_id: id, move_file: true }),
+      method: 'PATCH',
+      body,
     })
+  }
+
+  storedId = null
+
+  function openDialog(id, title) {
+    storedId = id
+    $('#title').textContent = `${id} ${title}`
+    $('#operation').showModal()
+  }
+
+  function setWatched() {
+    return patch(`/api/recordings/${storedId}`, JSON.stringify({ watched_at: new Date().toISOString() }))
+  }
+  function setWatchedAndMove() {
+    return patch(`/api/recordings/${storedId}`, JSON.stringify({ watched_at: new Date().toISOString(), file_folder: "archives" }))
+  }
+  function del() {
+    return patch(`/api/recordings/${storedId}`, JSON.stringify({ deleted_at: new Date().toISOString() }))
+  }
+  function setWatchedAndDelete() {
+    return patch(`/api/recordings/${storedId}`, JSON.stringify({ watched_at: new Date().toISOString(), deleted_at: new Date().toISOString() }))
   }
 </script>
 
@@ -17,6 +36,7 @@
 <a href="/recordings">Recordings</a>
 <a href="/views">Views</a>
 
+<h1>Digestions</h1>
 <table>
 {% for item in agg %}
     <tr><td><marker-plot
@@ -27,11 +47,18 @@
     </marker-plot></td>
     <td>
     {% for rec_id, watched in rec_zip(item.id) %}
-      <button onclick="setWatched({{ rec_id }})">{{ watched }}</button>
+      <button onclick="openDialog({{ rec_id }}, '{{ item.name }}')">{{ watched }}</button>
     {% endfor %}
     </td>
-    <td>{{ item.start_time_string }}</td><td>{{ item.name }}</td>
+    <td>{{ item.start_time_string.strftime("%Y/%m/%d(%a) %H:%M") }}</td><td>{{ item.name }}</td>
 {% endfor %}
 </table>
 
-</html>
+<dialog id="operation" closedby="any">
+  <h2 id="title"></h2>
+  <button onclick="setWatched().then(() => $('#operation').close())">移動して視聴済み</button>
+  <button onclick="setWatched().then(() => $('#operation').close())">移動しないで視聴済み</button>
+  <button onclick="confirm() && del().then(() => $('#operation').close())">削除</button>
+  <button onclick="confirm() && setWatchedAndDelete().then(() => $('#operation').close())">視聴済み＋削除</button>
+</dialog>
+{% endblock %}

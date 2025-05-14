@@ -15,7 +15,8 @@ class MarkerPlot extends HTMLElement {
         svg {
           width: 10em;
           height: 10px;
-          border: 1px solid black;
+          border: 1px solid currentcolor;
+          fill: currentcolor;
         }
       </style>
       <svg></svg>
@@ -54,7 +55,6 @@ class MarkerPlot extends HTMLElement {
           `${cx},${cy + halfH}`, // bottom
           `${cx - halfW},${cy}`  // left
         ].join(' '))
-        diamond.setAttribute('fill', 'black')
         svg.appendChild(diamond)
       })
     })

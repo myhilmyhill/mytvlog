@@ -1,6 +1,5 @@
-<!DOCTYPE html>
-<html lang="ja">
-
+{% extends "base.html" %}
+{% block content %}
 <h1>Recordings</h1>
 
 <table>
@@ -8,18 +7,17 @@
     <tr>
       <td>id</td>
       <td>program_id</td>
-      <td>name</td><td>watched_at</td><td>deleted_at</td>
+      <td>name</td><td>watched</td><td>deleted</td>
     </tr>
   </thead>
   <tbody>
   {% for item in recordings %}
     <tr>
-      <td><a href="/api/recordings/{{ item.id }}">{{ item.id }}</td>
-      <td><a href="/api/programs/{{ item.program_id }}">{{ item.program_id }}</td>
-      <td>{{ item.name }}</td><td>{{ item.watched_at }}</td><td>{{ item.deleted_at }}</td>
+      <td><a href="{{ url_for('get_recording', id=item.id) }}">{{ item.id }}</td>
+      <td><a href="{{ url_for('get_program', id=item.program_id) }}">{{ item.program_id }}</td>
+      <td>{{ item.name }}</td><td>{{ '1' if item.watched_at }}</td><td>{{ '1' if item.deleted_at }}</td>
     </tr>
   {% endfor %}
   </tbody>
 </table>
-
-</html>
+{% endblock %}
