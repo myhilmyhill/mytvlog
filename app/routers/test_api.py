@@ -2,57 +2,8 @@ import pytest
 import sqlite3
 from datetime import datetime, timezone, timedelta
 from fastapi.testclient import TestClient
-from .main import app
-from .dependencies import get_db_connection
-
-@pytest.fixture
-def con():
-    con = sqlite3.connect(":memory:", detect_types=sqlite3.PARSE_COLNAMES, check_same_thread=False)
-    con.row_factory = sqlite3.Row
-
-    def adapt_datetime_epoch(val):
-        """Adapt datetime.datetime to Unix timestamp."""
-        return int(val.timestamp())
-
-    sqlite3.register_adapter(datetime, adapt_datetime_epoch)
-
-    def convert_timestamp(val):
-        """Convert Unix epoch timestamp to datetime.datetime object."""
-        return datetime.fromtimestamp(int(val)).astimezone(timezone(timedelta(hours=9)))
-
-    sqlite3.register_converter("timestamp", convert_timestamp)
-
-    with open("db/schema.sql") as f:
-        con.executescript(f.read())
-
-    yield con
-    con.close()
-
-@pytest.fixture
-def client(con):
-    def override_get_db():
-        try:
-            yield con
-        finally:
-            pass
-
-    app.dependency_overrides[get_db_connection] = override_get_db
-    client = TestClient(app)
-    yield client
-    app.dependency_overrides.clear()
-
-def test_digestions(con, client):
-    con.executescript("""
-        INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
-            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'));
-        INSERT INTO recordings (id, program_id, file_path, watched_at, deleted_at, created_at) VALUES
-            (1, 1, '//recorded/test1', unixepoch('2025-05-12T12:30:00+09:00'), NULL, 0),
-            (2, 1, '//recorded/test2', NULL, NULL, 0);
-        INSERT INTO views (program_id, viewed_time, created_at) VALUES
-            (1, unixepoch('2025-05-12T12:05:00+09:00'), unixepoch('2025-05-12T13:00:00+09:00'));
-    """)
-    response = client.get("/")
-    assert response.status_code == 200
+from ..test_main import con, client
+from ..dependencies import get_db_connection
 
 def test_get_program(con, client):
     con.executescript("""
@@ -63,8 +14,8 @@ def test_get_program(con, client):
     assert response.status_code == 200
     assert response.json()["id"] == 1
 
-def test_set_viewed(con, client):
-    response = client.post("/api/viewed", json={
+def test_create_view(con, client):
+    response = client.post("/api/viewes", json={
         "program": {
             "event_id": 11,
             "service_id": 101,
@@ -80,12 +31,12 @@ def test_set_viewed(con, client):
     program = client.get("/api/programs/1").json()
     assert program["event_id"] == 11
 
-def test_set_viewed_延長でdurationが延びる(con, client):
+def test_create_view_延長でdurationが延びる(con, client):
     con.executescript("""
         INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'));
     """)
-    response = client.post("/api/viewed", json={
+    response = client.post("/api/viewes", json={
         "program": {
             "event_id": 11,
             "service_id": 101,
@@ -101,12 +52,12 @@ def test_set_viewed_延長でdurationが延びる(con, client):
     program = client.get("/api/programs/1").json()
     assert program["duration"] == 1860
 
-def test_set_viewed_延長でdurationが縮む(con, client):
+def test_create_view_延長でdurationが縮む(con, client):
     con.executescript("""
         INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'));
     """)
-    response = client.post("/api/viewed", json={
+    response = client.post("/api/viewes", json={
         "program": {
             "event_id": 11,
             "service_id": 101,
@@ -122,12 +73,12 @@ def test_set_viewed_延長でdurationが縮む(con, client):
     program = client.get("/api/programs/1").json()
     assert program["duration"] == 1740
 
-def test_set_viewed_created_atより前のviewed_timeでdurationが変化しても古い値で上書きしない(con, client):
+def test_create_view_created_atより前のviewed_timeでdurationが変化しても古い値で上書きしない(con, client):
     con.executescript("""
         INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'));
     """)
-    response = client.post("/api/viewed", json={
+    response = client.post("/api/viewes", json={
         "program": {
             "event_id": 11,
             "service_id": 101,
@@ -143,19 +94,19 @@ def test_set_viewed_created_atより前のviewed_timeでdurationが変化して�
     program = client.get("/api/programs/1").json()
     assert program["duration"] == 1800
 
-def test_get_recorded(con, client):
+def test_get_recording(con, client):
     con.executescript("""
         INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'));
         INSERT INTO recordings (id, program_id, file_path, watched_at, deleted_at, created_at) VALUES
-            (1, 1, '//recorded/test1', unixepoch('2025-05-12T13:00:00+09:00'), NULL, unixepoch('2025-05-12T12:30:00+09:00'));
+            (1, 1, '//server/recorded/test1', unixepoch('2025-05-12T13:00:00+09:00'), NULL, unixepoch('2025-05-12T12:30:00+09:00'));
     """)
     response = client.get("/api/recordings/1")
     assert response.status_code == 200
     assert response.json()["id"] == 1
 
-def test_set_recorded(con, client):
-    response = client.post("/api/recorded", json={
+def test_create_recording(con, client):
+    response = client.post("/api/recordings", json={
         "program": {
             "event_id": 11,
             "service_id": 101,
@@ -165,24 +116,84 @@ def test_set_recorded(con, client):
             "text": "Text",
             "ext_text": "Ext Text",
         },
-        "file_path": "//server/root/test1",
-        "recorded_at": "2025-05-12T12:30:00+09:00",
+        "file_path": "//server/recorded/test1",
+        "created_at": "2025-05-12T12:30:00+09:00",
     })
     assert response.status_code == 200
 
-def test_set_watched(con, client):
+def test_patch_recording_set_watched(con, client):
     con.executescript("""
         INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'));
         INSERT INTO recordings (id, program_id, file_path, watched_at, deleted_at, created_at) VALUES
-            (1, 1, '//recorded/test1',  NULL, NULL, unixepoch('2025-05-12T12:30:00+09:00'));
+            (1, 1, '//server/recorded/test1', NULL, NULL, unixepoch('2025-05-12T12:30:00+09:00'));
     """)
 
-    response = client.post("/api/watched", json={
-        "recording_id": 1,
-        "move_file": False,
-        "watched_at": "2025-05-12T12:30:00+09:00",
+    response = client.patch("/api/recordings/1", json={
+        "watched_at": "2025-05-12T13:00:00+09:00",
+        "file_folder": "archives",
     })
     assert response.status_code == 200
     recording = client.get("/api/recordings/1").json()
-    # assert recording["watched_at"] == "2025-05-12T12:30:00+09:00"
+    assert recording["id"] == 1
+    assert recording["file_path"] == "//server/archives/test1"
+    assert recording["file_folder"] == "archives"
+    assert recording["watched_at"] == "2025-05-12T13:00:00+09:00"
+    assert recording["deleted_at"] == None
+
+def test_patch_recording_unset_watched(con, client):
+    con.executescript("""
+        INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
+            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'));
+        INSERT INTO recordings (id, program_id, file_path, watched_at, deleted_at, created_at) VALUES
+            (1, 1, '//server/archives/test1', unixepoch('2025-05-12T13:00:00+09:00'), NULL, unixepoch('2025-05-12T12:30:00+09:00'));
+    """)
+
+    response = client.patch("/api/recordings/1", json={
+        "watched_at": None,
+    })
+    assert response.status_code == 200
+    recording = client.get("/api/recordings/1").json()
+    assert recording["id"] == 1
+    assert recording["file_path"] == "//server/archives/test1"
+    assert recording["file_folder"] == "archives"
+    assert recording["watched_at"] == None
+    assert recording["deleted_at"] == None
+
+def test_patch_recording_set_deleted(con, client):
+    con.executescript("""
+        INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
+            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'));
+        INSERT INTO recordings (id, program_id, file_path, watched_at, deleted_at, created_at) VALUES
+            (1, 1, '//server/archives/test1', unixepoch('2025-05-12T13:00:00+09:00'), NULL, unixepoch('2025-05-12T12:30:00+09:00'));
+    """)
+
+    response = client.patch("/api/recordings/1", json={
+        "deleted_at": "2025-05-12T13:10:00+09:00",
+    })
+    assert response.status_code == 200
+    recording = client.get("/api/recordings/1").json()
+    assert recording["id"] == 1
+    assert recording["file_path"] == ""
+    assert recording["file_folder"] == None
+    assert recording["watched_at"] == "2025-05-12T13:00:00+09:00"
+    assert recording["deleted_at"] == "2025-05-12T13:10:00+09:00"
+
+def test_patch_recording_unset_deleted(con, client):
+    con.executescript("""
+        INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
+            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'));
+        INSERT INTO recordings (id, program_id, file_path, watched_at, deleted_at, created_at) VALUES
+            (1, 1, '', unixepoch('2025-05-12T13:00:00+09:00'), unixepoch('2025-05-12T13:10:00+09:00'), unixepoch('2025-05-12T12:30:00+09:00'));
+    """)
+
+    response = client.patch("/api/recordings/1", json={
+        "deleted_at": None,
+    })
+    assert response.status_code == 200
+    recording = client.get("/api/recordings/1").json()
+    assert recording["id"] == 1
+    assert recording["file_path"] == ""
+    assert recording["file_folder"] == None
+    assert recording["watched_at"] == "2025-05-12T13:00:00+09:00"
+    assert recording["deleted_at"] == None

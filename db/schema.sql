@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS "recordings" (
     file_path TEXT NOT NULL,
     watched_at INTEGER,
     deleted_at INTEGER,
+    created_at INTEGER NOT NULL,
     FOREIGN KEY (program_id) REFERENCES programs(id)
 ) STRICT;
 

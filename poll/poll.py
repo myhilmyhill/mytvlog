@@ -8,7 +8,7 @@ import os
 def run_job(poll_status_url: str):
     with urllib.request.urlopen(poll_status_url, timeout=10) as res_status:
         status = json.loads(res_status.read().decode())
-        if status.get("play_status", "") == "finished":
+        if status.get("play_status") == "finished":
             return
 
         body = {
@@ -22,7 +22,7 @@ def run_job(poll_status_url: str):
             "viewed_time": status["tot"]
         }
         data = json.dumps(body).encode('utf-8')
-        req = urllib.request.Request('http://mytvlog/api/viewed', data=data, method='POST')
+        req = urllib.request.Request('http://mytvlog/api/viewes', data=data, method='POST')
         req.add_header('Content-Type', 'application/json')
         with urllib.request.urlopen(req, timeout=10) as res:
             pass
@@ -36,14 +36,15 @@ def sleep_until_next_interval(interval_minutes, delay_seconds):
         next_time = now.replace(minute=next_minute, second=0, microsecond=0)
 
     next_time += timedelta(seconds=delay_seconds)
-    sleep_seconds = (next_time - now).total_seconds()
+    sleep_seconds = (next_time - now).total_seconds() % (interval_minutes * 60)
     if sleep_seconds > 0:
         print(f"Next run at {next_time}, sleeping for {sleep_seconds:.2f} seconds", flush=True)
         time.sleep(sleep_seconds)
 
 def main():
+    print('Start', flush=True)
     while True:
-        sleep_until_next_interval(interval_minutes=5, delay_seconds=10)
+        sleep_until_next_interval(interval_minutes=5, delay_seconds=2 * 60)
         print('Polling', flush=True)
         try:
             run_job(os.environ['poll_status_url'])

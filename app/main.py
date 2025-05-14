@@ -1,44 +1,22 @@
 from typing import Annotated
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, Request, Depends, Body, Path
 from starlette.responses import RedirectResponse
 from starlette.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
 
 from pydantic import BaseModel
-from datetime import datetime, timezone, timedelta
-import sqlite3
-from sqlite3 import Connection
+from datetime import datetime
 import os
+from .dependencies import DbConnectionDep
+from .routers import api
 from .smb import SMB
+from sqlite3 import Connection
 
 app = FastAPI()
+app.include_router(api.router)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
-
-def get_db_connection():
-    DB_PATH = "db/tv.db"
-    con = sqlite3.connect(DB_PATH, detect_types=sqlite3.PARSE_COLNAMES)
-    con.row_factory = sqlite3.Row
-
-    def adapt_datetime_epoch(val):
-        """Adapt datetime.datetime to Unix timestamp."""
-        return int(val.timestamp())
-
-    sqlite3.register_adapter(datetime, adapt_datetime_epoch)
-
-    def convert_timestamp(val):
-        """Convert Unix epoch timestamp to datetime.datetime object."""
-        return datetime.fromtimestamp(int(val)).astimezone(timezone(timedelta(hours=9)))
-
-    sqlite3.register_converter("timestamp", convert_timestamp)
-
-    try:
-        yield con
-    finally:
-        con.close()
-
-DbConnectionDep = Annotated[sqlite3.Connection, Depends(get_db_connection)]
 
 smb_server = os.environ["smb_server"]
 dst_root = os.environ["dst_root"]
@@ -147,14 +125,6 @@ class Program(BaseModel):
     start_time: datetime
     duration: int
 
-@app.get("/api/programs/{id}")
-def get_program(id: int, con: DbConnectionDep):
-    cur = con.cursor()
-
-    cur.execute("SELECT * FROM programs WHERE id = ?", (id,))
-    item = cur.fetchone()
-    return item
-
 def get_or_create_program(con: Connection, program: Program, created_at: datetime, viewed_time: datetime) -> int:
     cur = con.cursor()
     cur.execute("""
@@ -192,7 +162,7 @@ class ViewRequest(BaseModel):
     viewed_time: datetime
 
 @app.post("/api/viewed")
-def set_viewed(data: ViewRequest, con: DbConnectionDep):
+def set_viewed_deprecated(data: ViewRequest, con: DbConnectionDep):
     program_id = get_or_create_program(con, data.program, data.viewed_time, data.viewed_time)
 
     cursor = con.cursor()
@@ -203,28 +173,19 @@ def set_viewed(data: ViewRequest, con: DbConnectionDep):
     con.commit()
     return {}
 
-@app.get("/api/recordings/{id}")
-def get_recorded(id: int, con: DbConnectionDep):
-    cur = con.execute("""
-        SELECT id, program_id, file_path, watched_at AS "watched_at [timestamp]", deleted_at AS "deleted_at [timestamp]"
-        FROM recordings WHERE ID = ?
-    """, (id,))
-    item = cur.fetchone()
-    return item
-
 class RecordRequest(BaseModel):
     program: Program
     file_path: str
     recorded_at: datetime
 
 @app.post("/api/recorded")
-def set_recorded(data: RecordRequest, con: DbConnectionDep):
+def set_recorded_deprecated(data: RecordRequest, con: DbConnectionDep):
     program_id = get_or_create_program(con, data.program, data.recorded_at, data.recorded_at)
 
     con.execute("""
-        INSERT INTO recordings (program_id, file_path)
-        VALUES (?, ?)
-    """, (program_id, f"//{smb_server}{data.file_path}"))
+        INSERT INTO recordings (program_id, file_path, created_at)
+        VALUES (?, ?, ?)
+    """, (program_id, f"//{smb_server}{data.file_path}", data.recorded_at))
     con.commit()
     return {}
 
@@ -233,7 +194,7 @@ class WatchRequest(BaseModel):
     move_file: bool
 
 @app.post("/api/watched")
-def set_watched(data: WatchRequest, con: DbConnectionDep):
+def set_watched_deprecated(data: WatchRequest, con: DbConnectionDep):
     if data.move_file:
         cur = con.execute("SELECT file_path FROM recordings WHERE id = ?", (data.recording_id,))
         file_path, = cur.fetchone()
@@ -245,19 +206,6 @@ def set_watched(data: WatchRequest, con: DbConnectionDep):
         con.execute("""
             UPDATE recordings SET watched_at = ? WHERE id = ?
         """, (datetime.now(), data.recording_id))
-
-    con.commit()
-    return {}
-
-class DeleteRequest(BaseModel):
-    recording_id: int
-    delete_file: bool
-
-@app.post("/api/deleted")
-def set_deleted(data: DeleteRequest, con: DbConnectionDep):
-    con.execute("""
-        UPDATE recordings SET deleted_at = ? WHERE id = ?
-    """, (datetime.now(), data.recording_id))
 
     con.commit()
     return {}
