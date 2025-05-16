@@ -1,7 +1,9 @@
 from typing import Annotated
 from fastapi import Depends
 from datetime import datetime, timezone, timedelta
+import os
 import sqlite3
+from .smb import SMB
 
 def get_db_connection():
     DB_PATH = "db/tv.db"
@@ -27,3 +29,8 @@ def get_db_connection():
 
 DbConnectionDep = Annotated[sqlite3.Connection, Depends(get_db_connection)]
 
+def get_smb():
+    smb_server = os.environ["smb_server"]
+    yield SMB(smb_server, os.environ["smb_username"], os.environ["smb_password"])
+
+SmbDep = Annotated[SMB, Depends(get_smb)]

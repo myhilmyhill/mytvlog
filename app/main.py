@@ -4,6 +4,8 @@ from starlette.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
 
+import json
+import os
 from datetime import datetime
 from .dependencies import DbConnectionDep
 from .routers import api
@@ -12,6 +14,8 @@ app = FastAPI()
 app.include_router(api.router)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
+
+dst_root = os.environ["dst_root"]
 
 @app.get("/", response_class=HTMLResponse)
 def digestions(request: Request, con: DbConnectionDep):
@@ -46,10 +50,10 @@ def digestions(request: Request, con: DbConnectionDep):
         ORDER BY programs.start_time
     """)
     agg = cur.fetchall()
-    rec_zip = lambda id: zip(*next([x["rec_ids"].split(","), x["watcheds"].split(",")] for x in agg if x["id"] == id))
+    rec_zip = lambda id: zip(*next([json.loads(x["rec_ids"]), json.loads(x["watcheds"])] for x in agg if x["id"] == id))
 
     return templates.TemplateResponse(
-        request=request, name="index.html", context={"agg": agg, "rec_zip": rec_zip})
+        request=request, name="index.html", context={"agg": agg, "rec_zip": rec_zip, "dst_root": dst_root})
 
 @app.get("/programs", response_class=HTMLResponse)
 def programs(request: Request, con: DbConnectionDep):

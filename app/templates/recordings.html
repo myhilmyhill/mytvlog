@@ -7,7 +7,7 @@
     <tr>
       <td>id</td>
       <td>program_id</td>
-      <td>name</td><td>watched</td><td>deleted</td>
+      <td>name</td><td>watched</td><td>deleted</td><td>file_folder</td>
     </tr>
   </thead>
   <tbody>
@@ -15,7 +15,7 @@
     <tr>
       <td><a href="{{ url_for('get_recording', id=item.id) }}">{{ item.id }}</td>
       <td><a href="{{ url_for('get_program', id=item.program_id) }}">{{ item.program_id }}</td>
-      <td>{{ item.name }}</td><td>{{ '1' if item.watched_at }}</td><td>{{ '1' if item.deleted_at }}</td>
+      <td>{{ item.name }}</td><td>{{ '1' if item.watched_at }}</td><td>{{ '1' if item.deleted_at }}</td><td>{{ item.file_path.split("/")[3] }}</td>
     </tr>
   {% endfor %}
   </tbody>

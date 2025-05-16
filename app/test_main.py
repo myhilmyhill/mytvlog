@@ -1,9 +1,11 @@
 import pytest
 import sqlite3
 from datetime import datetime, timezone, timedelta
+from unittest.mock import Mock
 from fastapi.testclient import TestClient
 from .main import app
-from .dependencies import get_db_connection
+from .smb import SMB
+from .dependencies import get_db_connection, get_smb
 
 @pytest.fixture
 def con():
@@ -29,17 +31,28 @@ def con():
     con.close()
 
 @pytest.fixture
-def client(con):
+def smb():
+    yield Mock(spec=SMB)
+
+@pytest.fixture
+def client(con, smb):
     def override_get_db():
         try:
             yield con
         finally:
             pass
 
+    def override_get_smb():
+        try:
+            yield smb
+        finally:
+            pass
+
     app.dependency_overrides[get_db_connection] = override_get_db
+    app.dependency_overrides[get_smb] = override_get_smb
     client = TestClient(app)
     yield client
-    app.dependency_overrides.clear()
+    app.dependency_overrides = {}
 
 def test_digestions(con, client):
     con.executescript("""

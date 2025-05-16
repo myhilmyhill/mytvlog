@@ -22,7 +22,7 @@
     return patch(`/api/recordings/${storedId}`, JSON.stringify({ watched_at: new Date().toISOString() }))
   }
   function setWatchedAndMove() {
-    return patch(`/api/recordings/${storedId}`, JSON.stringify({ watched_at: new Date().toISOString(), file_folder: "archives" }))
+    return patch(`/api/recordings/${storedId}`, JSON.stringify({ watched_at: new Date().toISOString(), file_folder: "{{ dst_root }}" }))
   }
   function del() {
     return patch(`/api/recordings/${storedId}`, JSON.stringify({ deleted_at: new Date().toISOString() }))
@@ -56,7 +56,7 @@
 
 <dialog id="operation" closedby="any">
   <h2 id="title"></h2>
-  <button onclick="setWatched().then(() => $('#operation').close())">移動して視聴済み</button>
+  <button onclick="setWatchedAndMove().then(() => $('#operation').close())">移動して視聴済み</button>
   <button onclick="setWatched().then(() => $('#operation').close())">移動しないで視聴済み</button>
   <button onclick="confirm() && del().then(() => $('#operation').close())">削除</button>
   <button onclick="confirm() && setWatchedAndDelete().then(() => $('#operation').close())">視聴済み＋削除</button>
