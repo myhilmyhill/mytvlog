@@ -27,7 +27,7 @@ class Program(BaseModel):
     duration: int
     text: str | None = None
     ext_text: str | None = None
-    createad_at: datetime | None = None
+    created_at: datetime | None = None
 
 class ProgramGet(Program):
     id: int
@@ -46,7 +46,7 @@ def get_program(id: int, con: DbConnectionDep):
         FROM programs WHERE id = ?
     """, (id,))
     item = cur.fetchone()
-    return ProgramGet(**item, end_time=item["start_time"] + timedelta(item["duration"]))
+    return ProgramGet(**item, end_time=item["start_time"] + timedelta(seconds=item["duration"]))
 
 @router.post("/api/programs")
 @router.patch("/api/programs/{id}")
@@ -140,7 +140,8 @@ class RecordingPatch(BaseModel):
 def get_recording(id: int, con: DbConnectionDep):
     cur = con.execute("""
         SELECT
-            recordings.id, recordings.program_id, recordings.file_path, recordings.watched_at AS "watched_at [timestamp]", recordings.deleted_at AS "deleted_at [timestamp]", recordings.created_at AS "created_at [timestamp]",
+            recordings.id, recordings.program_id, recordings.file_path, recordings.watched_at AS "watched_at [timestamp]", recordings.deleted_at AS "deleted_at [timestamp]", recordings.created_at AS "created_at [timestamp]"
+            ,
             programs.event_id, programs.service_id, programs.name, programs.start_time AS "start_time [timestamp]", programs.duration, programs.text, programs.ext_text, programs.created_at AS "program_created_at [timestamp]"
         FROM recordings INNER JOIN programs ON programs.id = recordings.program_id
         WHERE recordings.id = ?

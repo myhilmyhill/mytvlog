@@ -11,13 +11,17 @@
   }
 
   storedId = null
-
-  function openDialog(id, title) {
+  storedFilePath = null
+  function openDialog(id, title, filePath) {
     storedId = id
+    storedFilePath = filePath
     $('#title').textContent = `${id} ${title}`
     $('#operation').showModal()
   }
 
+  function move() {
+    return patch(`/api/recordings/${storedId}`, JSON.stringify({ file_folder: "{{ dst_root }}" }))
+  }
   function setWatched() {
     return patch(`/api/recordings/${storedId}`, JSON.stringify({ watched_at: new Date().toISOString() }))
   }
@@ -46,8 +50,8 @@
       width="{{ 5 * 60 * 2 }}">
     </marker-plot></td>
     <td>
-    {% for rec_id, watched in rec_zip(item.id) %}
-      <button onclick="openDialog({{ rec_id }}, '{{ item.name }}')">{{ watched }}</button>
+    {% for rec_id, watched, file_path in rec_zip(item.id) %}
+      <button onclick="openDialog({{ rec_id }}, '{{ item.name }}', '{{ file_path }}')">{{ watched }}</button>
     {% endfor %}
     </td>
     <td>{{ item.start_time_string.strftime("%Y/%m/%d(%a) %H:%M") }}</td><td>{{ item.name }}</td>
@@ -56,8 +60,12 @@
 
 <dialog id="operation" closedby="any">
   <h2 id="title"></h2>
-  <button onclick="setWatchedAndMove().then(() => $('#operation').close())">移動して視聴済み</button>
-  <button onclick="setWatched().then(() => $('#operation').close())">移動しないで視聴済み</button>
+  <nav>
+    <button onclick="play(storedFilePath)">再生</button>
+  </nav>
+  <button onclick="move().then(() => $('#operation').close())">移動</button>
+  <button onclick="setWatchedAndMove().then(() => $('#operation').close())">移動＋視聴済み</button>
+  <button onclick="setWatched().then(() => $('#operation').close())">視聴済み</button>
   <button onclick="confirm() && del().then(() => $('#operation').close())">削除</button>
   <button onclick="confirm() && setWatchedAndDelete().then(() => $('#operation').close())">視聴済み＋削除</button>
 </dialog>

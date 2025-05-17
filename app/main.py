@@ -27,6 +27,8 @@ def digestions(request: Request, con: DbConnectionDep):
                 program_id, json_group_array(id) AS rec_ids
                 ,
                 json_group_array(CASE WHEN watched_at IS NOT NULL THEN 1 ELSE 0 END) AS watcheds
+                ,
+                json_group_array(file_path) AS file_paths
             FROM recordings
             WHERE watched_at IS NULL AND deleted_at IS NULL
             GROUP BY program_id
@@ -43,14 +45,14 @@ def digestions(request: Request, con: DbConnectionDep):
             ,
             agg_views.views
             ,
-            agg_recs.rec_ids, agg_recs.watcheds
+            agg_recs.rec_ids, agg_recs.watcheds, agg_recs.file_paths
         FROM programs
         INNER JOIN agg_recs ON agg_recs.program_id = programs.id
         LEFT OUTER JOIN agg_views ON agg_views.program_id = programs.id
         ORDER BY programs.start_time
     """)
     agg = cur.fetchall()
-    rec_zip = lambda id: zip(*next([json.loads(x["rec_ids"]), json.loads(x["watcheds"])] for x in agg if x["id"] == id))
+    rec_zip = lambda id: zip(*next([json.loads(x["rec_ids"]), json.loads(x["watcheds"]), json.loads(x["file_paths"])] for x in agg if x["id"] == id))
 
     return templates.TemplateResponse(
         request=request, name="index.html", context={"agg": agg, "rec_zip": rec_zip, "dst_root": dst_root})
