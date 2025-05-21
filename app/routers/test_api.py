@@ -174,7 +174,7 @@ def test_patch_recording_set_watched(con, client, smb):
         "watched_at": "2025-05-12T13:00:00+09:00",
         "file_folder": "archives",
     })
-    assert response.status_code == 200
+    assert response.status_code == 202
     recording = response.json()
     assert recording["id"] == 1
     assert recording["file_path"] == "//server/archives/test1"
@@ -214,7 +214,7 @@ def test_patch_recording_set_deleted(con, client, smb):
     response = client.patch("/api/recordings/1", json={
         "deleted_at": "2025-05-12T13:10:00+09:00",
     })
-    assert response.status_code == 200
+    assert response.status_code == 202
     recording = response.json()
     assert recording["id"] == 1
     assert recording["file_path"] == ""

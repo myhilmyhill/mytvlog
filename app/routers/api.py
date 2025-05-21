@@ -1,11 +1,11 @@
 from typing import Annotated
-from fastapi import APIRouter, Depends, Body, Path, HTTPException
+from fastapi import APIRouter, Depends, Body, Path, HTTPException, BackgroundTasks, Response, status
 
 from pydantic import BaseModel, Field
 from datetime import datetime, timezone, timedelta
 from sqlite3 import Connection
 from ..smb import SMB
-from ..dependencies import DbConnectionDep, SmbDep
+from ..dependencies import DbConnectionDep, DbConnectionFactoryDep, SmbDep
 from .recordings import file_paths, import_api
 
 router = APIRouter()
@@ -132,7 +132,8 @@ class RecordingPost(Recording):
 
 class RecordingPatch(BaseModel):
     file_path: str | None = Field(
-        default=None, title="変更しても、実際のファイルの場所は移動されません"
+        default=None,
+        title="変更しても、実際のファイルの場所は移動されません。file_folder, deleted_at と同時に設定できません",
     )
     file_folder: str | None = Field(
         default=None, title="変更した場合、実際のファイルの場所も移動されます"
@@ -179,40 +180,73 @@ def create_recording(item: Annotated[RecordingPost, Body()], con: DbConnectionDe
     return get_recording(cur.lastrowid, con)
 
 @router.patch("/api/recordings/{id}")
-def patch_recording(item: Annotated[RecordingPatch, Body()], id: Annotated[int, Path()], con: DbConnectionDep, smb: SmbDep):
+def patch_recording(
+        item: Annotated[RecordingPatch, Body()], id: Annotated[int, Path()],
+        response: Response,
+        con: DbConnectionDep, con_factory: DbConnectionFactoryDep, smb: SmbDep, background_tasks: BackgroundTasks):
     diff = item.model_dump(exclude_unset=True)
+    accepted = False
+
     if "deleted_at" in diff and diff["deleted_at"] is not None:
+        if "file_path" in diff and diff["file_path"] != "":
+            raise HTTPException(status_code=400, detail="Invalid file_path: should be unset")
+
         file_path, = con.execute("SELECT file_path FROM recordings WHERE id = ?", (id,)).fetchone()
         if file_path != "":
-            smb.delete_files(f"{file_path}*")
+            def delete_file(con_factory):
+                smb.delete_files(f"{file_path}*")
+
+                with con_factory() as con:
+                    con.execute("UPDATE recordings SET file_path = ? WHERE id = ?", ("", id))
+                    con.commit()
+
+            background_tasks.add_task(delete_file, con_factory)
+            accepted = True
 
         item.file_path = diff["file_path"] = ""
 
-    elif "file_folder" in diff and "file_path" not in diff:
+    elif "file_folder" in diff:
+        if "file_path" in diff:
+            raise HTTPException(status_code=400, detail="Invalid file_path: should be unset")
+
         file_path, = con.execute("SELECT file_path FROM recordings WHERE id = ?", (id,)).fetchone()
         if file_path == "":
             raise HTTPException(status_code=400, detail="No file")
 
         file_path_splited = file_path.split("/")    # //server/folder/to/file
+
+        if len(file_path_splited) < 3:
+            raise HTTPException(status_code=400, detail="Invalid file_path; should be '//server/folder/to/file'")
+
         file_path_splited[3] = item.file_folder
         item.file_path = diff["file_path"] = "/".join(file_path_splited)
 
-        smb.move_files_by_root(f"{file_path}*", item.file_folder)
+        def move_file(con_factory):
+            smb.move_files_by_root(f"{file_path}*", item.file_folder)
+
+            with con_factory() as con:
+                con.execute("UPDATE recordings SET file_path = ? WHERE id = ?", (item.file_path, id))
+                con.commit()
+
+        background_tasks.add_task(move_file, con_factory)
+        accepted = True
+
+    elif "file_path" in diff:
+        con.execute("UPDATE recordings SET file_path = ? WHERE id = ?", (item.file_path, id))
 
     cur = con.execute("""
         UPDATE recordings SET
-            file_path = CASE WHEN :set_file_path THEN :file_path ELSE file_path END,
             watched_at = CASE WHEN :set_watched THEN :watched_at ELSE watched_at END,
             deleted_at = CASE WHEN :set_deleted THEN :deleted_at ELSE deleted_at END
         WHERE id = :id
     """, {
         "id": id,
-        "set_file_path": "file_path" in diff,
-        "file_path": item.file_path,
         "set_watched": "watched_at" in diff,
         "watched_at": item.watched_at,
         "set_deleted": "deleted_at" in diff,
         "deleted_at": item.deleted_at,
     })
     con.commit()
+    if accepted:
+        response.status_code = status.HTTP_202_ACCEPTED
     return get_recording(id, con)
