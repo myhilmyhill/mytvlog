@@ -51,7 +51,7 @@
     </marker-plot></td>
     <td>
     {% for rec_id, watched, file_path in rec_zip(item.id) %}
-      <button onclick="openDialog({{ rec_id }}, '{{ item.name }}', '{{ file_path }}')">{{ watched }}</button>
+      <button onclick='openDialog({{ rec_id }}, {{ item.name | tojson | safe }}, {{ file_path | tojson | safe }})'>{{ watched }}</button>
     {% endfor %}
     </td>
     <td>{{ item.start_time_string.strftime("%Y/%m/%d(%a) %H:%M") }}</td><td>{{ item.name }}</td>

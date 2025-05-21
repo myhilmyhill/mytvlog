@@ -6,8 +6,11 @@ from datetime import datetime, timezone, timedelta
 from sqlite3 import Connection
 from ..smb import SMB
 from ..dependencies import DbConnectionDep, SmbDep
+from .recordings import file_paths, import_api
 
 router = APIRouter()
+router.include_router(file_paths.router)
+router.include_router(import_api.router)
 
 def extract_model_fields(model: type[BaseModel], row: dict, aliases: dict[str, str] = None) -> dict:
     aliases = aliases or {}
@@ -46,6 +49,9 @@ def get_program(id: int, con: DbConnectionDep):
         FROM programs WHERE id = ?
     """, (id,))
     item = cur.fetchone()
+    if item is None:
+        raise HTTPException(status_code=404)
+
     return ProgramGet(**item, end_time=item["start_time"] + timedelta(seconds=item["duration"]))
 
 @router.post("/api/programs")
@@ -147,6 +153,9 @@ def get_recording(id: int, con: DbConnectionDep):
         WHERE recordings.id = ?
     """, (id,))
     row = cur.fetchone()
+    if row is None:
+        return HTTPException(status_code=404)
+
     return RecordingGet(**extract_model_fields(RecordingGet, row),
         program = Program(**extract_model_fields(Program, row, aliases={"created_at": "program_created_at"})),
         file_folder = row["file_path"].split("/")[3] if row["file_path"] != "" else None,

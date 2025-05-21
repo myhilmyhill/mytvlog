@@ -4,6 +4,7 @@ from datetime import datetime, timezone, timedelta
 import os
 import sqlite3
 from .smb import SMB
+from .edcb import CtrlCmdUtil
 
 def get_db_connection():
     DB_PATH = "db/tv.db"
@@ -34,3 +35,12 @@ def get_smb():
     yield SMB(smb_server, os.environ["smb_username"], os.environ["smb_password"])
 
 SmbDep = Annotated[SMB, Depends(get_smb)]
+
+def get_edcb():
+    server = os.environ["edcb_server"]
+    port = os.getenv("edcb_port", "4510")
+    c = CtrlCmdUtil()
+    c.setNWSetting(server, port)
+    yield c
+
+EdcbDep = Annotated[CtrlCmdUtil, Depends(get_edcb)]

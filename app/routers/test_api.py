@@ -1,9 +1,5 @@
 import pytest
-import sqlite3
-from datetime import datetime, timezone, timedelta
-from fastapi.testclient import TestClient
-from ..test_main import con, client, smb
-from ..dependencies import get_db_connection
+from ..conftest import con, client, smb
 
 def test_get_program(con, client):
     con.executescript("""
