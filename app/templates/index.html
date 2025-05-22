@@ -2,37 +2,30 @@
 {% block content %}
 <script>
   function $(q) { return document.querySelector(q) }
-  function patch(url, body) {
-    return fetch(url, {
+  function patch(body) {
+    return fetch(`/api/recordings/${$('#recording-id').textContent}`, {
       headers: { 'Content-Type': 'application/json' },
       method: 'PATCH',
-      body,
+      body: JSON.stringify(body),
     })
   }
 
-  storedId = null
-  storedFilePath = null
-  function openDialog(id, title, filePath) {
-    storedId = id
-    storedFilePath = filePath
-    $('#title').textContent = `${id} ${title}`
+  async function openDialog(id) {
+    $('#recording-id').textContent = id
+    const r = await fetch(`/api/recordings/${id}`).then(r => r.json())
+    $('#name').textContent = r.program.name
+    $('#file-path').textContent = r.file_path
     $('#operation').showModal()
   }
 
-  function move() {
-    return patch(`/api/recordings/${storedId}`, JSON.stringify({ file_folder: "{{ dst_root }}" }))
+  function patchFileFolder() { patch({ file_folder: "{{ dst_root }}" }).then(() => location.reload()) }
+  function patchWatched() { patch({ watched_at: new Date().toISOString() }).then(() => location.reload()) }
+  function patchWatchedAndFileFolder() {
+    patch({ watched_at: new Date().toISOString(), file_folder: "{{ dst_root }}" }).then(() => location.reload())
   }
-  function setWatched() {
-    return patch(`/api/recordings/${storedId}`, JSON.stringify({ watched_at: new Date().toISOString() }))
-  }
-  function setWatchedAndMove() {
-    return patch(`/api/recordings/${storedId}`, JSON.stringify({ watched_at: new Date().toISOString(), file_folder: "{{ dst_root }}" }))
-  }
-  function del() {
-    return patch(`/api/recordings/${storedId}`, JSON.stringify({ deleted_at: new Date().toISOString() }))
-  }
-  function setWatchedAndDelete() {
-    return patch(`/api/recordings/${storedId}`, JSON.stringify({ watched_at: new Date().toISOString(), deleted_at: new Date().toISOString() }))
+  function patchDeleled() { patch({ deleted_at: new Date().toISOString() }).then(() => location.reload()) }
+  function patchWatchedAndDeleted() {
+    patch({ watched_at: new Date().toISOString(), deleted_at: new Date().toISOString() }).then(() => location.reload())
   }
 </script>
 
@@ -59,14 +52,18 @@
 </table>
 
 <dialog id="operation" closedby="any">
-  <h2 id="title"></h2>
+  <h2 id="name"></h2>
+  <dl>
+    <dt>recording_id</dt><dd id="recording-id"></dd>
+    <dt>file_path</dt><dd id="file-path"></dd>
+  </dl>
   <nav>
     <button onclick="play(storedFilePath)">再生</button>
   </nav>
-  <button onclick="move().then(() => $('#operation').close())">移動</button>
-  <button onclick="setWatchedAndMove().then(() => $('#operation').close())">移動＋視聴済み</button>
-  <button onclick="setWatched().then(() => $('#operation').close())">視聴済み</button>
-  <button onclick="confirm() && del().then(() => $('#operation').close())">削除</button>
-  <button onclick="confirm() && setWatchedAndDelete().then(() => $('#operation').close())">視聴済み＋削除</button>
+  <button onclick="patchFileFolder()">移動</button>
+  <button onclick="patchWatchedAndFileFolder()">移動＋視聴済み</button>
+  <button onclick="patchWatched()">視聴済み</button>
+  <button onclick="confirm() && patchDeleted()">削除</button>
+  <button onclick="confirm() && patchWatchedAndDeleted()">視聴済み＋削除</button>
 </dialog>
 {% endblock %}

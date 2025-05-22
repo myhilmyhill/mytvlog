@@ -107,6 +107,13 @@ def test_create_view_created_atより前のviewed_timeでdurationが変化して
     program = client.get("/api/programs/1").json()
     assert program["duration"] == 1800
 
+#def 延長追従
+
+#def プログラム予約でevent_id=65535を登録するとき、同じservice_idとstart_timeの番組があればそれを優先する
+
+#def プログラム予約でevent_id=65535が存在するとき、同じservice_idとstart_timeの番組でevent_idを上書きする
+
+
 def test_get_recording(con, client):
     con.executescript("""
         INSERT INTO programs (id, event_id, service_id, name, start_time, duration, text, ext_text, created_at) VALUES

@@ -43,10 +43,17 @@ def get_program(id: int, con: DbConnectionDep):
 
     cur.execute("""
         SELECT
-            id, event_id, service_id, name, start_time AS "start_time [timestamp]"
-            ,
-            duration, text, ext_text, created_at AS "created_at [timestamp]"
-        FROM programs WHERE id = ?
+            id
+          , event_id
+          , service_id
+          , name
+          , start_time AS "start_time [timestamp]"
+          , duration
+          , text
+          , ext_text
+          , created_at AS "created_at [timestamp]"
+        FROM programs
+        WHERE id = ?
     """, (id,))
     item = cur.fetchone()
     if item is None:
@@ -147,9 +154,20 @@ class RecordingPatch(BaseModel):
 def get_recording(id: int, con: DbConnectionDep):
     cur = con.execute("""
         SELECT
-            recordings.id, recordings.program_id, recordings.file_path, recordings.watched_at AS "watched_at [timestamp]", recordings.deleted_at AS "deleted_at [timestamp]", recordings.created_at AS "created_at [timestamp]"
-            ,
-            programs.event_id, programs.service_id, programs.name, programs.start_time AS "start_time [timestamp]", programs.duration, programs.text, programs.ext_text, programs.created_at AS "program_created_at [timestamp]"
+            recordings.id
+          , recordings.program_id
+          , recordings.file_path
+          , recordings.watched_at AS "watched_at [timestamp]"
+          , recordings.deleted_at AS "deleted_at [timestamp]"
+          , recordings.created_at AS "created_at [timestamp]"
+          , programs.event_id
+          , programs.service_id
+          , programs.name
+          , programs.start_time AS "start_time [timestamp]"
+          , programs.duration
+          , programs.text
+          , programs.ext_text
+          , programs.created_at AS "program_created_at [timestamp]"
         FROM recordings INNER JOIN programs ON programs.id = recordings.program_id
         WHERE recordings.id = ?
     """, (id,))

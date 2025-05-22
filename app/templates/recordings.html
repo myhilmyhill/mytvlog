@@ -1,5 +1,34 @@
 {% extends "base.html" %}
 {% block content %}
+<script>
+  function $(q) { return document.querySelector(q) }
+  async function patch(json) {
+    return (await fetch(`/api/recordings/${$('#id').textContent}`, {
+      headers: { 'Content-Type': 'application/json' },
+      method: 'PATCH',
+      body: JSON.stringify(json),
+    })).ok
+  }
+  async function openDialog(id) {
+    $('#id').textContent = id
+    const r = await fetch(`/api/recordings/${id}`).then(r => r.json())
+    $('#file-path').value = r.file_path
+    $('#name').textContent = r.program.name
+    $('#date').textContent = r.program.start_time
+    $('#created-at').textContent = r.created_at
+    $('#watched-at').textContent = r.watched_at
+    $('#deleted-at').textContent = r.deleted_at
+    $('#folder').value = r.file_folder
+    $('#op').showModal()
+  }
+  function patchFilePath() { patch({ file_path: $('#file-path').value }).then(() => location.reload()) }
+  function patchFileFolder() { patch({ file_folder: $('#folder').value }).then(() => location.reload()) }
+  function patchWatched() { patch({ watched_at: new Date().toISOString() }).then(() => location.reload()) }
+  function patchDeleted() { patch({ deleted_at: new Date().toISOString() }).then(() => location.reload()) }
+  function patchUnwatched() { patch({ watched_at: null }).then(() => location.reload()) }
+  function patchUndeleted() { patch({ deleted_at: null }).then(() => location.reload()) }
+</script>
+
 <h1>Recordings</h1>
 
 <table>
@@ -7,7 +36,11 @@
     <tr>
       <td>id</td>
       <td>program_id</td>
-      <td>name</td><td>watched</td><td>deleted</td><td>file_folder</td>
+      <td>name</td>
+      <td>op</td>
+      <td>watched</td>
+      <td>deleted</td>
+      <td>file_folder</td>
     </tr>
   </thead>
   <tbody>
@@ -15,9 +48,46 @@
     <tr>
       <td><a href="{{ url_for('get_recording', id=item.id) }}">{{ item.id }}</td>
       <td><a href="{{ url_for('get_program', id=item.program_id) }}">{{ item.program_id }}</td>
-      <td>{{ item.name }}</td><td>{{ '1' if item.watched_at }}</td><td>{{ '1' if item.deleted_at }}</td><td>{{ item.file_path.split("/")[3] }}</td>
+      <td>{{ item.name }}</td>
+      <td><button onclick="openDialog({{ item.id }})">⋮</button></td>
+      <td>{{ '1' if item.watched_at }}</td>
+      <td>{{ '1' if item.deleted_at }}</td>
+      <td>{{ item.file_path.split("/")[3] }}</td>
     </tr>
   {% endfor %}
   </tbody>
 </table>
+
+<dialog id="op" closedby="any">
+  <h2 id="name"></h2>
+  <dl>
+    <dt>id</dt><dd id="id"></dd>
+    <dt>start_time</dt><dd id="date"></dd>
+    <dt>created_at</dt><dd id="created-at"></dd>
+    <dt>file_path</dt>
+    <dd>
+      <input id="file-path" type="text">
+      <button onclick="patchFilePath()">変更</button></dd>
+    <dt>file_folder</dt>
+    <dd>
+      <input id="folder" type="text" list="roots">
+      <button onclick="patchFileFolder()">移動</button>
+      <datalist id="roots">
+        {% for v in ["ammann"] %}<option value="{{ v }}"></option>{% endfor %}
+      </datalist>
+    </dd>
+    <dt>watched_at</dt>
+    <dd>
+      <time id="watched-at"></time>
+      <button id="watch" onclick="patchWatched()">視聴済み</button>
+      <button id="unwatch" onclick="patchUnwatched()">解除</button>
+    </dd>
+    <dt>deleted_at</dt>
+    <dd>
+      <time id="deleted-at"></time>
+      <button id="delete" onclick="confirm() && patchDeleted()">削除</button>
+      <button id="undelete" onclick="patchUndeleted()">解除</button>
+    </dd>
+  </dl>
+</dialog>
 {% endblock %}
