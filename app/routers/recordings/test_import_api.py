@@ -97,22 +97,50 @@ def test_import_recordings(con, client, smb):
     assert response.status_code == 200
     assert response.json()["count_programs"] == 2
     assert response.json()["count_recordings"] == 2
-    recordings = client.get("/api/recordings/1").json()
-    assert recordings.items() >= {
+    recordings = client.get("/api/recordings").json()
+    def k(d): return d["id"]
+    assert sorted(recordings, key=k) == sorted([
+        {
             "id": 1,
             "program": {
+                "id": 1,
                 "event_id": 11,
                 "service_id": 101,
                 "name": "Test Program",
                 "start_time": "2025-05-12T12:00:00+09:00",
                 "duration": 1800,
+                "end_time": "2025-05-12T12:30:00+09:00",
                 "text": "Text",
                 "ext_text": "Ext Text",
                 "created_at": "2025-05-12T12:31:00+09:00",
             },
             "file_path": "//recorded/test1",
+            "file_folder": "test1",
             "created_at": "2025-05-12T12:31:00+09:00",
-        }.items()
+            "watched_at": None,
+            "deleted_at": None,
+        },
+        {
+            "id": 2,
+            "program": {
+                "id": 2,
+                "event_id": 12,
+                "service_id": 102,
+                "name": "Test Program 2",
+                "start_time": "2025-05-12T12:30:00+09:00",
+                "duration": 3600,
+                "end_time": "2025-05-12T13:30:00+09:00",
+                "text": "Text 2",
+                "ext_text": "Ext Text 2",
+                "created_at": "2025-05-12T13:31:00+09:00",
+            },
+            "file_path": "//recorded/test2",
+            "file_folder": "test2",
+            "created_at": "2025-05-12T13:31:00+09:00",
+            "watched_at": None,
+            "deleted_at": None,
+        },
+    ], key=k)
 
 def test_import_recordings_dry_run_すでに同じprogramsがあればそれを使う(con, client, smb):
     con.executescript("""

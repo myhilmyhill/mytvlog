@@ -11,7 +11,7 @@
   }
   async function openDialog(id) {
     $('#id').textContent = id
-    const r = await fetch(`/api/recordings/${id}`).then(r => r.json())
+    const r = await(await fetch(`/api/recordings/${id}`)).json()
     $('#file-path').value = r.file_path
     $('#name').textContent = r.program.name
     $('#date').textContent = r.program.start_time
@@ -31,63 +31,72 @@
 
 <h1>Recordings</h1>
 
+<form>
+  <fieldset>
+    <legend>絞り込み</legend>
+    <label>From<input type="date" name="from_" value="{{ request.query_params.from_ }}"></label>
+    <label>To<input type="date" name="to" value="{{ request.query_params.to }}"></label>
+    <label>視聴済みも含む<input type="checkbox" name="watched" {{ 'checked' if request.query_params.watched }}></label>
+    <label>削除済みも含む<input type="checkbox" name="deleted" {{ 'checked' if request.query_params.deleted }}></label>
+    <button type="submit">Search</button>
+  </fieldset>
+</form>
+
 <table>
   <thead>
     <tr>
-      <td>id</td>
-      <td>program_id</td>
-      <td>name</td>
-      <td>op</td>
-      <td>watched</td>
-      <td>deleted</td>
-      <td>file_folder</td>
-    </tr>
-  </thead>
+      <td>id
+      <td>program_id
+      <td>name
+      <td>op
+      <td>watched
+      <td>deleted
+      <td>file_folder
   <tbody>
   {% for item in recordings %}
     <tr>
-      <td><a href="{{ url_for('get_recording', id=item.id) }}">{{ item.id }}</td>
-      <td><a href="{{ url_for('get_program', id=item.program_id) }}">{{ item.program_id }}</td>
-      <td>{{ item.name }}</td>
-      <td><button onclick="openDialog({{ item.id }})">⋮</button></td>
-      <td>{{ '1' if item.watched_at }}</td>
-      <td>{{ '1' if item.deleted_at }}</td>
-      <td>{{ item.file_path.split("/")[3] }}</td>
-    </tr>
+      <td><a href="{{ url_for('get_recording', id=item.id) }}">{{ item.id }}</a>
+      <td><a href="{{ url_for('get_program', id=item.program.id) }}">{{ item.program.id }}</a>
+      <td>{{ item.program.name }}
+      <td><button onclick="openDialog({{ item.id }})">⋮</button>
+      <td>{{ '1' if item.watched_at }}
+      <td>{{ '1' if item.deleted_at }}
+      <td>{{ item.file_folder }}
   {% endfor %}
-  </tbody>
 </table>
 
 <dialog id="op" closedby="any">
   <h2 id="name"></h2>
   <dl>
-    <dt>id</dt><dd id="id"></dd>
-    <dt>start_time</dt><dd id="date"></dd>
-    <dt>created_at</dt><dd id="created-at"></dd>
-    <dt>file_path</dt>
+    <dt>id
+    <dd id="id">
+    <dt>start_time
+    <dd id="date">
+    <dt>created_at
+    <dd id="created-at">
+    <dt>file_path
     <dd>
       <input id="file-path" type="text">
-      <button onclick="patchFilePath()">変更</button></dd>
-    <dt>file_folder</dt>
+      <button onclick="patchFilePath()">変更</button>
+      <button onclick="play($('#file-path').value)">再生</button>
+    <dt>file_folder
     <dd>
       <input id="folder" type="text" list="roots">
-      <button onclick="patchFileFolder()">移動</button>
       <datalist id="roots">
         {% for v in ["ammann"] %}<option value="{{ v }}"></option>{% endfor %}
       </datalist>
-    </dd>
-    <dt>watched_at</dt>
+      <button onclick="patchFileFolder()">移動</button>
+    <dt>watched_at
     <dd>
       <time id="watched-at"></time>
       <button id="watch" onclick="patchWatched()">視聴済み</button>
       <button id="unwatch" onclick="patchUnwatched()">解除</button>
-    </dd>
-    <dt>deleted_at</dt>
+    <dt>deleted_at
     <dd>
       <time id="deleted-at"></time>
       <button id="delete" onclick="confirm() && patchDeleted()">削除</button>
       <button id="undelete" onclick="patchUndeleted()">解除</button>
-    </dd>
   </dl>
+  <button onclick="play($('#file-path').value)">再生</button>
 </dialog>
 {% endblock %}

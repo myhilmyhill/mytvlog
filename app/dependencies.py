@@ -1,14 +1,24 @@
 from typing import Annotated, Callable
 from fastapi import Depends, BackgroundTasks
+from pydantic import AfterValidator
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 import os
 import sqlite3
 from .smb import SMB
 from .edcb import CtrlCmdUtil
 
-def _make_db_connection():
-    DB_PATH = "db/tv.db"
-    con = sqlite3.connect(DB_PATH, detect_types=sqlite3.PARSE_COLNAMES)
+JST = ZoneInfo("Asia/Tokyo")
+
+def localize_to_jst(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=JST)
+    return dt.astimezone(JST)
+
+JSTDatetime = Annotated[datetime, AfterValidator(localize_to_jst)]
+
+def make_db_connection(db_path, **kwargs):
+    con = sqlite3.connect(db_path, detect_types=sqlite3.PARSE_COLNAMES, **kwargs)
     con.row_factory = sqlite3.Row
 
     def adapt_datetime_epoch(val):
@@ -19,14 +29,16 @@ def _make_db_connection():
 
     def convert_timestamp(val):
         """Convert Unix epoch timestamp to datetime.datetime object."""
-        return datetime.fromtimestamp(int(val)).astimezone(timezone(timedelta(hours=9)))
+        return datetime.fromtimestamp(int(val)).astimezone(JST)
 
     sqlite3.register_converter("timestamp", convert_timestamp)
 
     return con
 
+DB_PATH = "db/tv.db"
+
 def get_db_connection():
-    con = _make_db_connection()
+    con = make_db_connection(DB_PATH)
     try:
         yield con
     finally:
@@ -38,7 +50,7 @@ def get_db_connection_factory():
     """BackgroundTasks など別スレッドで接続する用
        使い終わったら close する必要あり
     """
-    return _make_db_connection
+    return lambda: make_db_connection(DB_PATH)
 
 DbConnectionFactoryDep = Annotated[Callable[[], sqlite3.Connection], Depends(get_db_connection_factory)]
 

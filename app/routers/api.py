@@ -1,11 +1,11 @@
-from typing import Annotated
-from fastapi import APIRouter, Depends, Body, Path, HTTPException, BackgroundTasks, Response, status
+from typing import Annotated, Literal
+from fastapi import APIRouter, Depends, Path, Query, Body, HTTPException, BackgroundTasks, Response, status
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 from datetime import datetime, timezone, timedelta
 from sqlite3 import Connection
 from ..smb import SMB
-from ..dependencies import DbConnectionDep, DbConnectionFactoryDep, SmbDep
+from ..dependencies import JSTDatetime, DbConnectionDep, DbConnectionFactoryDep, SmbDep
 from .recordings import file_paths, import_api
 
 router = APIRouter()
@@ -22,7 +22,7 @@ def extract_model_fields(model: type[BaseModel], row: dict, aliases: dict[str, s
             result[field_name] = row[source_key]
     return result
 
-class Program(BaseModel):
+class ProgramBase(BaseModel):
     event_id: int
     service_id: int
     name: str
@@ -32,10 +32,14 @@ class Program(BaseModel):
     ext_text: str | None = None
     created_at: datetime | None = None
 
-class ProgramGet(Program):
+class ProgramGet(ProgramBase):
     id: int
-    end_time: datetime
     created_at: datetime
+
+    @computed_field
+    @property
+    def end_time(self) -> datetime:
+        return self.start_time + timedelta(seconds=self.duration)
 
 @router.get("/api/programs/{id}")
 def get_program(id: int, con: DbConnectionDep):
@@ -59,14 +63,14 @@ def get_program(id: int, con: DbConnectionDep):
     if item is None:
         raise HTTPException(status_code=404)
 
-    return ProgramGet(**item, end_time=item["start_time"] + timedelta(seconds=item["duration"]))
+    return ProgramGet(**item)
 
 @router.post("/api/programs")
 @router.patch("/api/programs/{id}")
 def create_program():
     raise NotImplementedError
 
-def get_or_create_program(con: Connection, program: Program, created_at: datetime, viewed_time: datetime) -> int:
+def get_or_create_program(con: Connection, program: ProgramBase, created_at: datetime, viewed_time: datetime) -> int:
     cur = con.cursor()
     cur.execute("""
         SELECT id, duration, created_at AS "created_at [timestamp]"
@@ -101,7 +105,7 @@ def get_or_create_program(con: Connection, program: Program, created_at: datetim
     return cur.lastrowid
 
 class ViewBase(BaseModel):
-    program: Program
+    program: ProgramBase
     viewed_time: datetime
     created_at: datetime
 
@@ -120,18 +124,33 @@ def set_view(item: ViewIn, con: DbConnectionDep):
     con.commit()
     return {}
 
-class Recording(BaseModel):
-    program: Program
+class RecordingQueryParams(BaseModel):
+    from_: Annotated[JSTDatetime | None | Literal[""], Field(default=None)]
+    # TODO: バグでaliasだと常にデフォルトになる
+    # from_: Annotated[JSTDatetime | None | Literal[""], Field(default=None, alias="from")] = None
+    # from_: JSTDatetime | None | Literal[""] = Query(default=None, alias="from")
+    to: JSTDatetime | None | Literal[""] = Query(default=None)
+    watched: bool | Literal["on"] = Query(default=True)
+    deleted: bool | Literal["on"] = Query(default=False)
+
+class RecordingBase(BaseModel):
+    program: ProgramBase
     file_path: str
     watched_at: datetime | None
     deleted_at: datetime | None
     created_at: datetime
 
-class RecordingGet(Recording):
+class RecordingGet(RecordingBase):
+    program: ProgramGet
     id: int
-    file_folder: str | None
 
-class RecordingPost(Recording):
+    @computed_field
+    @property
+    def file_folder(self) -> str | None:
+        s = self.file_path.split("/")
+        return s[3] if len(s) > 3 else None
+
+class RecordingPost(RecordingBase):
     file_folder: str | None = None
     watched_at: datetime | None = None
     deleted_at: datetime | None = None
@@ -149,6 +168,44 @@ class RecordingPatch(BaseModel):
     deleted_at: datetime | None = Field(
         default=None, title="値を設定した場合、実際のファイルも削除されます"
     )
+
+@router.get("/api/recordings", response_model=list[RecordingGet])
+def get_recordings(con: DbConnectionDep, params: Annotated[RecordingQueryParams, Depends()]):
+    cur = con.execute("""
+        SELECT
+            recordings.id
+          , recordings.program_id
+          , recordings.file_path
+          , recordings.watched_at AS "watched_at [timestamp]"
+          , recordings.deleted_at AS "deleted_at [timestamp]"
+          , recordings.created_at AS "created_at [timestamp]"
+          , programs.event_id
+          , programs.service_id
+          , programs.name
+          , programs.start_time AS "start_time [timestamp]"
+          , programs.duration
+          , programs.text
+          , programs.ext_text
+          , programs.created_at AS "program_created_at [timestamp]"
+        FROM recordings INNER JOIN programs ON programs.id = recordings.program_id
+        WHERE
+            TRUE
+          AND (:from IS NULL OR :from <= programs.start_time)
+          AND (:to IS NULL OR programs.start_time + programs.duration < :to)
+          AND (:watched = TRUE OR recordings.watched_at IS NULL)
+          AND (:deleted = TRUE OR recordings.deleted_at IS NULL)
+        ORDER BY programs.start_time DESC
+    """, {
+        "from": params.from_ if params.from_ else None,
+        "to": params.to + timedelta(days=1) if params.to else None,
+        "watched": bool(params.watched),
+        "deleted": bool(params.deleted),
+        })
+    rows = cur.fetchall()
+    return [RecordingGet(**extract_model_fields(RecordingGet, row),
+        program = ProgramGet(**extract_model_fields(ProgramGet, row, aliases={"created_at": "program_created_at"})))
+        for row in rows
+        ]
 
 @router.get("/api/recordings/{id}", response_model=RecordingGet)
 def get_recording(id: int, con: DbConnectionDep):
@@ -176,9 +233,7 @@ def get_recording(id: int, con: DbConnectionDep):
         return HTTPException(status_code=404)
 
     return RecordingGet(**extract_model_fields(RecordingGet, row),
-        program = Program(**extract_model_fields(Program, row, aliases={"created_at": "program_created_at"})),
-        file_folder = row["file_path"].split("/")[3] if row["file_path"] != "" else None,
-        )
+        program = ProgramGet(**extract_model_fields(ProgramGet, row, aliases={"created_at": "program_created_at"})))
 
 @router.post("/api/recordings", response_model=RecordingGet)
 def create_recording(item: Annotated[RecordingPost, Body()], con: DbConnectionDep):

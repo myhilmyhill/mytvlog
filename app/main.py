@@ -1,5 +1,5 @@
 from typing import Annotated
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
 from starlette.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
@@ -83,19 +83,13 @@ def programs(request: Request, con: DbConnectionDep):
     return templates.TemplateResponse(
         request=request, name="programs.html", context={"programs": programs})
 
-@app.get("/recordings", response_class=HTMLResponse)
-def recordings(request: Request, con: DbConnectionDep):
-    cur = con.cursor()
+class RecordingQueryParams(api.RecordingQueryParams):
+    watched: bool = False
 
-    cur.execute("""
-        SELECT recordings.id, program_id, file_path,
-            watched_at AS "watched_at [timestamp]", deleted_at AS "deleted_at [timestamp]",
-            programs.name, programs.service_id
-        FROM recordings
-        INNER JOIN programs ON programs.id = recordings.program_id
-        ORDER BY programs.start_time DESC
-    """)
-    recordings = cur.fetchall()
+@app.get("/recordings", response_class=HTMLResponse)
+def recordings(request: Request, params: Annotated[RecordingQueryParams, Depends()], con: DbConnectionDep):
+    recordings = api.get_recordings(con, params)
+
     return templates.TemplateResponse(
         request=request, name="recordings.html", context={"recordings": recordings})
 

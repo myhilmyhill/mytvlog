@@ -58,7 +58,7 @@
     <dt>file_path</dt><dd id="file-path"></dd>
   </dl>
   <nav>
-    <button onclick="play(storedFilePath)">再生</button>
+    <button onclick="play($('#file-path').textContent)">再生</button>
   </nav>
   <button onclick="patchFileFolder()">移動</button>
   <button onclick="patchWatchedAndFileFolder()">移動＋視聴済み</button>
