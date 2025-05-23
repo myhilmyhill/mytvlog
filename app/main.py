@@ -88,7 +88,7 @@ class RecordingQueryParams(api.RecordingQueryParams):
 
 @app.get("/recordings", response_class=HTMLResponse)
 def recordings(request: Request, params: Annotated[RecordingQueryParams, Depends()], con: DbConnectionDep):
-    recordings = api.get_recordings(con, params)
+    recordings = api.get_recordings(params, con)
 
     return templates.TemplateResponse(
         request=request, name="recordings.html", context={"recordings": recordings})

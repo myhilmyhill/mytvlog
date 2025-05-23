@@ -170,7 +170,7 @@ class RecordingPatch(BaseModel):
     )
 
 @router.get("/api/recordings", response_model=list[RecordingGet])
-def get_recordings(con: DbConnectionDep, params: Annotated[RecordingQueryParams, Depends()]):
+def get_recordings(params: Annotated[RecordingQueryParams, Depends()], con: DbConnectionDep):
     cur = con.execute("""
         SELECT
             recordings.id
@@ -202,8 +202,16 @@ def get_recordings(con: DbConnectionDep, params: Annotated[RecordingQueryParams,
         "deleted": bool(params.deleted),
         })
     rows = cur.fetchall()
-    return [RecordingGet(**extract_model_fields(RecordingGet, row),
-        program = ProgramGet(**extract_model_fields(ProgramGet, row, aliases={"created_at": "program_created_at"})))
+    return [
+        RecordingGet(
+            **extract_model_fields(RecordingGet, row),
+            program = ProgramGet(
+                **extract_model_fields(ProgramGet, row, aliases={
+                    "created_at": "program_created_at",
+                    "id": "program_id",
+                })
+            )
+        )
         for row in rows
         ]
 
@@ -232,8 +240,15 @@ def get_recording(id: int, con: DbConnectionDep):
     if row is None:
         return HTTPException(status_code=404)
 
-    return RecordingGet(**extract_model_fields(RecordingGet, row),
-        program = ProgramGet(**extract_model_fields(ProgramGet, row, aliases={"created_at": "program_created_at"})))
+    return RecordingGet(
+        **extract_model_fields(RecordingGet, row),
+        program = ProgramGet(
+            **extract_model_fields(ProgramGet, row, aliases={
+                "created_at": "program_created_at",
+                "id": "program_id",
+                })
+            )
+        )
 
 @router.post("/api/recordings", response_model=RecordingGet)
 def create_recording(item: Annotated[RecordingPost, Body()], con: DbConnectionDep):
