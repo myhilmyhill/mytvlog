@@ -58,30 +58,18 @@ def digestions(request: Request, con: DbConnectionDep):
         request=request, name="index.html", context={"agg": agg, "rec_zip": rec_zip, "dst_root": dst_root})
 
 @app.get("/programs", response_class=HTMLResponse)
-def programs(request: Request, con: DbConnectionDep):
-    cur = con.cursor()
+def programs(request: Request, params: Annotated[api.ProgramQueryParams, Depends()], con: DbConnectionDep):
+    programs_raw = api.get_programs(params, con)
+    programs = []
+    for p in programs_raw:
+        p_dict = p.model_dump()
+        p_dict["start_time_timestamp"] = int(p.start_time.timestamp())
+        p_dict["end_time_timestamp"] = int(p.end_time.timestamp())
+        p_dict["viewed_times_timestamp"] = [int(t.timestamp()) for t in p.viewed_times]
+        programs.append(p_dict)
 
-    cur.execute("""
-        WITH agg_views AS (
-            SELECT program_id, json_group_array(viewed_time) AS views
-            FROM views
-            GROUP BY program_id
-        )
-        SELECT id, name, service_id, start_time
-            ,
-            start_time AS "start_time_str [timestamp]",
-            start_time + duration AS "end_time_str [timestamp]",
-            duration,
-            created_at AS "created_at [timestamp]"
-            ,
-            agg_views.views
-        FROM programs
-        LEFT OUTER JOIN agg_views ON agg_views.program_id = programs.id
-        ORDER BY start_time DESC
-    """)
-    programs = cur.fetchall()
     return templates.TemplateResponse(
-        request=request, name="programs.html", context={"programs": programs})
+        request=request, name="programs.html", context={"programs": programs, "params": params})
 
 class RecordingQueryParams(api.RecordingQueryParams):
     watched: bool = False

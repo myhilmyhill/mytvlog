@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, Path, Query, Body, HTTPException, Backgr
 from pydantic import BaseModel, Field, computed_field
 from datetime import datetime, timezone, timedelta
 from sqlite3 import Connection
+import json
 from ..smb import SMB
-from ..dependencies import JSTDatetime, DbConnectionDep, DbConnectionFactoryDep, SmbDep
+from ..dependencies import JSTDatetime, JST, DbConnectionDep, DbConnectionFactoryDep, SmbDep
 from .recordings import file_paths, import_api
 
 router = APIRouter()
@@ -22,6 +23,13 @@ def extract_model_fields(model: type[BaseModel], row: dict, aliases: dict[str, s
             result[field_name] = row[source_key]
     return result
 
+class ProgramQueryParams(BaseModel):
+    page: int = Query(default=1)
+    size: int = Query(default=100)
+    from_: JSTDatetime | None | Literal[""] = Query(default=None)
+    to: JSTDatetime | None | Literal[""] = Query(default=None)
+    name: str = Query(default="")
+
 class ProgramBase(BaseModel):
     event_id: int
     service_id: int
@@ -32,7 +40,7 @@ class ProgramBase(BaseModel):
     ext_text: str | None = None
     created_at: datetime | None = None
 
-class ProgramGet(ProgramBase):
+class ProgramGetBase(ProgramBase):
     id: int
     created_at: datetime
 
@@ -41,11 +49,19 @@ class ProgramGet(ProgramBase):
     def end_time(self) -> datetime:
         return self.start_time + timedelta(seconds=self.duration)
 
-@router.get("/api/programs/{id}")
-def get_program(id: int, con: DbConnectionDep):
-    cur = con.cursor()
+class ProgramGet(ProgramGetBase):
+    viewed_times: list[datetime]
 
-    cur.execute("""
+@router.get("/api/programs")
+def get_programs(params: Annotated[ProgramQueryParams, Depends()], con: DbConnectionDep):
+    cur = con.execute("""
+        WITH agg_views AS (
+            SELECT
+                program_id
+              , json_group_array(viewed_time) AS viewed_times_timestamp
+            FROM views
+            GROUP BY program_id
+        )
         SELECT
             id
           , event_id
@@ -56,14 +72,65 @@ def get_program(id: int, con: DbConnectionDep):
           , text
           , ext_text
           , created_at AS "created_at [timestamp]"
+          , coalesce(agg_views.viewed_times_timestamp, '[]') AS viewed_times_timestamp
         FROM programs
+        LEFT OUTER JOIN agg_views ON agg_views.program_id = programs.id
+        WHERE
+            TRUE
+          AND (:from IS NULL OR :from <= programs.start_time)
+          AND (:to IS NULL OR programs.start_time + programs.duration < :to)
+          AND (:name = '' OR programs.name LIKE '%' || :name || '%')
+        ORDER BY start_time DESC
+        LIMIT :size OFFSET :offset
+    """, {
+        "from": params.from_ if params.from_ else None,
+        "to": params.to + timedelta(days=1) if params.to else None,
+        "name": params.name,
+        "size": params.size,
+        "offset": (params.page - 1) * params.size,
+    })
+    rows = cur.fetchall()
+
+    return [ProgramGet(
+        **row,
+        viewed_times = [datetime.fromtimestamp(t).astimezone(JST) for t in json.loads(row["viewed_times_timestamp"])]
+        ) for row in rows]
+
+@router.get("/api/programs/{id}")
+def get_program(id: int, con: DbConnectionDep):
+    cur = con.cursor()
+
+    cur.execute("""
+        WITH agg_views AS (
+            SELECT
+                program_id
+              , json_group_array(viewed_time) AS viewed_times_timestamp
+            FROM views
+            GROUP BY program_id
+        )
+        SELECT
+            id
+          , event_id
+          , service_id
+          , name
+          , start_time AS "start_time [timestamp]"
+          , duration
+          , text
+          , ext_text
+          , created_at AS "created_at [timestamp]"
+          , coalesce(agg_views.viewed_times_timestamp, '[]') AS viewed_times_timestamp
+        FROM programs
+        LEFT OUTER JOIN agg_views ON agg_views.program_id = programs.id
         WHERE id = ?
     """, (id,))
-    item = cur.fetchone()
-    if item is None:
+    row = cur.fetchone()
+    if row is None:
         raise HTTPException(status_code=404)
 
-    return ProgramGet(**item)
+    return ProgramGet(
+        **row,
+        viewed_times = [datetime.fromtimestamp(t).astimezone(JST) for t in json.loads(row["viewed_times_timestamp"])]
+        )
 
 @router.post("/api/programs")
 @router.patch("/api/programs/{id}")
@@ -177,7 +244,7 @@ class RecordingBase(BaseModel):
     created_at: datetime
 
 class RecordingGet(RecordingBase):
-    program: ProgramGet
+    program: ProgramGetBase
     id: int
 
     @computed_field
@@ -241,8 +308,8 @@ def get_recordings(params: Annotated[RecordingQueryParams, Depends()], con: DbCo
     return [
         RecordingGet(
             **extract_model_fields(RecordingGet, row),
-            program = ProgramGet(
-                **extract_model_fields(ProgramGet, row, aliases={
+            program = ProgramGetBase(
+                **extract_model_fields(ProgramGetBase, row, aliases={
                     "created_at": "program_created_at",
                     "id": "program_id",
                 })
@@ -278,8 +345,8 @@ def get_recording(id: int, con: DbConnectionDep):
 
     return RecordingGet(
         **extract_model_fields(RecordingGet, row),
-        program = ProgramGet(
-            **extract_model_fields(ProgramGet, row, aliases={
+        program = ProgramGetBase(
+            **extract_model_fields(ProgramGetBase, row, aliases={
                 "created_at": "program_created_at",
                 "id": "program_id",
                 })

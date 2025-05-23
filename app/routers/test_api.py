@@ -4,21 +4,159 @@ from ..conftest import con, client, smb
 def test_get_program(con, client):
     con.executescript("""
         INSERT INTO programs (id, event_id, service_id, name, start_time, duration, text, ext_text, created_at) VALUES
-            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, 'Text', 'Ext Text', unixepoch('2025-05-12T12:01:00+09:00'));
+            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, 'Text', 'Ext Text', unixepoch('2025-05-12T12:01:00+09:00'))
+        ;
+        INSERT INTO views(program_id, viewed_time, created_at) VALUES
+            (1, unixepoch('2025-05-12T12:05:00+09:00'), unixepoch('2025-05-12T13:05:00+09:00'))
+          , (1, unixepoch('2025-05-12T12:10:00+09:00'), unixepoch('2025-05-12T13:10:00+09:00'))
+        ;
     """)
     response = client.get("/api/programs/1")
     assert response.status_code == 200
-    program = response.json()
-    assert program["id"] == 1
-    assert program["event_id"] == 11
-    assert program["service_id"] == 101
-    assert program["name"] == "Test Program"
-    assert program["start_time"] == "2025-05-12T12:00:00+09:00"
-    assert program["end_time"] == "2025-05-12T12:30:00+09:00"
-    assert program["duration"] == 1800
-    assert program["text"] == "Text"
-    assert program["ext_text"] == "Ext Text"
-    assert program["created_at"] == "2025-05-12T12:01:00+09:00"
+    assert response.json() == {
+        "id": 1,
+        "event_id": 11,
+        "service_id": 101,
+        "name": "Test Program",
+        "start_time": "2025-05-12T12:00:00+09:00",
+        "duration": 1800,
+        "end_time": "2025-05-12T12:30:00+09:00",
+        "text": "Text",
+        "ext_text": "Ext Text",
+        "created_at": "2025-05-12T12:01:00+09:00",
+        "viewed_times": ["2025-05-12T12:05:00+09:00", "2025-05-12T12:10:00+09:00"],
+    }
+
+def test_get_programs(con, client):
+    con.executescript("""
+        INSERT INTO programs (id, event_id, service_id, name, start_time, duration, text, ext_text, created_at) VALUES
+            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, 'Text', 'Ext Text', unixepoch('2025-05-12T12:01:00+09:00'))
+          , (2, 12, 102, 'Test Program 2', unixepoch('2025-05-12T12:30:00+09:00'), 3600, 'Text 2', 'Ext Text 2', unixepoch('2025-05-12T13:31:00+09:00'))
+        ;
+        INSERT INTO views(program_id, viewed_time, created_at) VALUES
+            (1, unixepoch('2025-05-12T12:05:00+09:00'), unixepoch('2025-05-12T13:05:00+09:00'))
+          , (1, unixepoch('2025-05-12T12:10:00+09:00'), unixepoch('2025-05-12T13:10:00+09:00'))
+        ;
+    """)
+    response1 = client.get("/api/programs")
+    assert response1.status_code == 200
+    assert response1.json() == [{
+        "id": 2,
+        "event_id": 12,
+        "service_id": 102,
+        "name": "Test Program 2",
+        "start_time": "2025-05-12T12:30:00+09:00",
+        "duration": 3600,
+        "end_time": "2025-05-12T13:30:00+09:00",
+        "text": "Text 2",
+        "ext_text": "Ext Text 2",
+        "created_at": "2025-05-12T13:31:00+09:00",
+        "viewed_times": [],
+    },
+    {
+        "id": 1,
+        "event_id": 11,
+        "service_id": 101,
+        "name": "Test Program",
+        "start_time": "2025-05-12T12:00:00+09:00",
+        "duration": 1800,
+        "end_time": "2025-05-12T12:30:00+09:00",
+        "text": "Text",
+        "ext_text": "Ext Text",
+        "created_at": "2025-05-12T12:01:00+09:00",
+        "viewed_times": ["2025-05-12T12:05:00+09:00", "2025-05-12T12:10:00+09:00"],
+    }]
+
+    response2 = client.get("/api/programs?page=1&size=1")
+    assert response2.status_code == 200
+    assert response2.json() == [{
+        "id": 2,
+        "event_id": 12,
+        "service_id": 102,
+        "name": "Test Program 2",
+        "start_time": "2025-05-12T12:30:00+09:00",
+        "duration": 3600,
+        "end_time": "2025-05-12T13:30:00+09:00",
+        "text": "Text 2",
+        "ext_text": "Ext Text 2",
+        "created_at": "2025-05-12T13:31:00+09:00",
+        "viewed_times": [],
+    }]
+
+    response3 = client.get("/api/programs?page=2&size=1")
+    assert response3.status_code == 200
+    assert response3.json() == [{
+        "id": 1,
+        "event_id": 11,
+        "service_id": 101,
+        "name": "Test Program",
+        "start_time": "2025-05-12T12:00:00+09:00",
+        "duration": 1800,
+        "end_time": "2025-05-12T12:30:00+09:00",
+        "text": "Text",
+        "ext_text": "Ext Text",
+        "created_at": "2025-05-12T12:01:00+09:00",
+        "viewed_times": ["2025-05-12T12:05:00+09:00", "2025-05-12T12:10:00+09:00"],
+    }]
+
+    response4 = client.get("/api/programs?page=3&size=1")
+    assert response4.status_code == 200
+    assert response4.json() == []
+
+def test_get_programs_from(con, client):
+    con.executescript("""
+        INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
+            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T00:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'))
+          , (2, 12, 102, 'Test Program 2', unixepoch('2025-05-13T00:00:00+09:00'), 3600, unixepoch('2025-05-12T13:31:00+09:00'))
+        ;
+    """)
+    response1 = client.get("/api/programs?from_=2025-05-12")
+    assert response1.status_code == 200
+    programs1 = response1.json()
+    assert len(programs1) == 2
+
+    response2 = client.get("/api/programs?from_=2025-05-13")
+    assert response2.status_code == 200
+    programs2 = response2.json()
+    assert len(programs2) == 1
+    assert programs2[0]["id"] == 2
+
+def test_get_programs_to(con, client):
+    con.executescript("""
+        INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
+            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T00:00:00+09:00'), 1800, unixepoch('2025-05-12T12:31:00+09:00'))
+          , (2, 12, 102, 'Test Program 2', unixepoch('2025-05-12T23:31:00+09:00'), 1800, unixepoch('2025-05-13T12:31:00+09:00'))
+        ;
+    """)
+    response1 = client.get("/api/programs?to=2025-05-12")
+    assert response1.status_code == 200
+    programs1 = response1.json()
+    assert len(programs1) == 1
+    assert programs1[0]["id"] == 1
+
+    response2 = client.get("/api/programs?to=2025-05-13")
+    assert response2.status_code == 200
+    programs2 = response2.json()
+    assert len(programs2) == 2
+
+def test_get_programs_name(con, client):
+    con.executescript("""
+        INSERT INTO programs (id, event_id, service_id, name, start_time, duration, text, ext_text, created_at) VALUES
+            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, 'Text', 'Ext Text', unixepoch('2025-05-12T12:01:00+09:00'))
+          , (2, 12, 102, 'テスト番組2', unixepoch('2025-05-12T12:30:00+09:00'), 3600, 'Text 2', 'Ext Text 2', unixepoch('2025-05-12T13:31:00+09:00'))
+        ;
+    """)
+    response1 = client.get("/api/programs?name=test")
+    assert response1.status_code == 200
+    programs1 = response1.json()
+    assert len(programs1) == 1
+    assert programs1[0]["id"] == 1
+
+    response2 = client.get("/api/programs?name=テスト")
+    assert response2.status_code == 200
+    programs2 = response2.json()
+    assert len(programs2) == 1
+    assert programs2[0]["id"] == 2
 
 def test_get_views_program_id(con, client):
     con.executescript("""

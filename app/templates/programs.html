@@ -2,24 +2,41 @@
 {% block content %}
 <h1>Programs</h1>
 
+<form>
+  <fieldset>
+    <legend>絞り込み</legend>
+    <label>From<input type="date" name="from_" value="{{ request.query_params.from_ }}"></label>
+    <label>To<input type="date" name="to" value="{{ request.query_params.to }}"></label>
+    <label>Name<input type="text" name="name" value="{{ request.query_params.name }}"></label>
+    <button type="submit">Search</button>
+  </fieldset>
+</form>
+
 <table>
   <thead>
     <tr>
-      <td>marker-plot</td>
-      <td>id</td><td>name</td><td>service_id</td><td>time</td>
-    </tr>
-  </thead>
+      <td>marker-plot
+      <td>id
+      <td>name
+      <td>service_id
+      <td>time
   <tbody>
-  {% for item in programs %}
+  {% for p in programs %}
     <tr>
       <td><marker-plot
-        min="{{ item.start_time }}"
-        max="{{ item.start_time + item.duration }}"
-        data="{{ item.views or '[]' }}"
-        width="{{ 60 * 5 * 2 }}"></marker-plot></td>
-      <td><a href="{{ url_for('get_program', id=item.id) }}">{{ item.id }}</td><td>{{ item.name }}</td><td>{{ item.service_id }}</td><td>{{ item.start_time_str.strftime("%Y/%m/%d(%a) %H:%M") }}-{{ item.end_time_str.strftime("%H:%M") }}</td>
-    </tr>
+        min="{{ p.start_time_timestamp }}"
+        max="{{ p.end_time_timestamp }}"
+        data="{{ p.viewed_times_timestamp }}"
+        width="{{ 60 * 5 * 2 }}"></marker-plot>
+      <td><a href="{{ url_for('get_program', id=p.id) }}">{{ p.id }}</a>
+      <td>{{ p.name }}
+      <td>{{ p.service_id }}
+      <td>{{ p.start_time.strftime("%Y/%m/%d(%a) %H:%M") }}-{{ p.end_time.strftime("%H:%M") }}
   {% endfor %}
-  </tbody>
 </table>
+
+<form>
+  <input type="hidden" name="page" value="{{ params.page + 1 }}">
+  <button type="submit">次</button>
+</form>
 {% endblock %}
