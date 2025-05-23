@@ -19,6 +19,13 @@
     $('#watched-at').textContent = r.watched_at
     $('#deleted-at').textContent = r.deleted_at
     $('#folder').value = r.file_folder
+
+    const vs = await(await fetch(`/api/views?program_id=${r.program.id}`)).json()
+    $('#marker-plot').setAttribute('min', new Date(r.program.start_time).getTime())
+    $('#marker-plot').setAttribute('max', new Date(r.program.end_time).getTime())
+    $('#marker-plot').setAttribute('data', JSON.stringify(vs.map(v => new Date(v.viewed_time).getTime())))
+    $('#marker-plot').setAttribute('width', 600_000)
+    $('#marker-plot').render()
     $('#op').showModal()
   }
   function patchFilePath() { patch({ file_path: $('#file-path').value }).then(() => location.reload()) }
@@ -96,6 +103,8 @@
       <time id="deleted-at"></time>
       <button id="delete" onclick="confirm() && patchDeleted()">削除</button>
       <button id="undelete" onclick="patchUndeleted()">解除</button>
+    <dt>marker_plot
+      <dd><marker-plot id="marker-plot"></marker-plot>
   </dl>
   <button onclick="play($('#file-path').value)">再生</button>
 </dialog>

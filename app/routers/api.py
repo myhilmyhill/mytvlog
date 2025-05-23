@@ -104,16 +104,52 @@ def get_or_create_program(con: Connection, program: ProgramBase, created_at: dat
     ))
     return cur.lastrowid
 
+class ViewQueryParams(BaseModel):
+    program_id: int | None = Query(default=None)
+    page: int | None = Query(default=1, gt=0, title="program_id 指定時は無視されて全件取得します")
+    size: int | None = Query(default=500, gt=0, title="program_id 指定時は無視されて全件取得します")
+
 class ViewBase(BaseModel):
-    program: ProgramBase
     viewed_time: datetime
     created_at: datetime
 
-class ViewIn(ViewBase):
+class ViewGet(ViewBase):
+    program_id: int
+
+class ViewPost(ViewBase):
+    program: ProgramBase
     created_at: datetime = datetime.now()
 
-@router.post("/api/viewes")
-def set_view(item: ViewIn, con: DbConnectionDep):
+@router.get("/api/views", response_model=list[ViewGet])
+def get_views(params: Annotated[ViewQueryParams, Depends()], con: DbConnectionDep):
+    if params.program_id is not None:
+        cur = con.execute("""
+            SELECT
+                program_id
+              , viewed_time AS "viewed_time [timestamp]"
+              , created_at AS "created_at [timestamp]"
+            FROM views
+            WHERE program_id = ?
+            ORDER BY viewed_time DESC
+        """, (params.program_id,))
+        rows = cur.fetchall()
+    else:
+        offset = (params.page - 1) * params.size
+        cur = con.execute("""
+            SELECT
+                program_id
+              , viewed_time AS "viewed_time [timestamp]"
+              , created_at AS "created_at [timestamp]"
+            FROM views
+            ORDER BY viewed_time DESC
+            LIMIT ? OFFSET ?
+        """, (params.size, offset))
+        rows = cur.fetchall()
+
+    return [ViewGet(**row) for row in rows]
+
+@router.post("/api/views")
+def create_view(item: ViewPost, con: DbConnectionDep):
     program_id = get_or_create_program(con, item.program, item.viewed_time, item.viewed_time)
 
     cursor = con.cursor()
@@ -122,7 +158,7 @@ def set_view(item: ViewIn, con: DbConnectionDep):
         VALUES (?, ?, ?)
     """, (program_id, item.viewed_time, datetime.now()))
     con.commit()
-    return {}
+    return
 
 class RecordingQueryParams(BaseModel):
     from_: Annotated[JSTDatetime | None | Literal[""], Field(default=None)]

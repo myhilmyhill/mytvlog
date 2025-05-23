@@ -20,8 +20,102 @@ def test_get_program(con, client):
     assert program["ext_text"] == "Ext Text"
     assert program["created_at"] == "2025-05-12T12:01:00+09:00"
 
+def test_get_views_program_id(con, client):
+    con.executescript("""
+        INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at) VALUES
+            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'))
+          , (2, 12, 102, 'Test Program 2', unixepoch('2025-05-12T12:30:00+09:00'), 1800, unixepoch('2025-05-13T12:31:00+09:00'))
+        ;
+        INSERT INTO views(program_id, viewed_time, created_at) VALUES
+            (1, unixepoch('2025-05-12T12:05:00+09:00'), unixepoch('2025-05-12T13:05:00+09:00'))
+          , (1, unixepoch('2025-05-12T12:10:00+09:00'), unixepoch('2025-05-12T13:10:00+09:00'))
+          , (2, unixepoch('2025-05-12T12:35:00+09:00'), unixepoch('2025-05-12T14:05:00+09:00'))
+        ;
+    """)
+    response = client.get("/api/views?program_id=1&page=1&size=1")    # page, size は無視される
+    assert response.status_code == 200
+    views = response.json()
+    assert views == [
+        {
+            "program_id": 1,
+            "viewed_time": "2025-05-12T12:10:00+09:00",
+            "created_at": "2025-05-12T13:10:00+09:00",
+        },
+        {
+            "program_id": 1,
+            "viewed_time": "2025-05-12T12:05:00+09:00",
+            "created_at": "2025-05-12T13:05:00+09:00",
+        },
+    ]
+
+def test_get_views_pages(con, client):
+    con.executescript("""
+        INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at) VALUES
+            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'))
+          , (2, 12, 102, 'Test Program 2', unixepoch('2025-05-12T12:30:00+09:00'), 1800, unixepoch('2025-05-13T12:31:00+09:00'))
+        ;
+        INSERT INTO views(program_id, viewed_time, created_at) VALUES
+            (1, unixepoch('2025-05-12T12:05:00+09:00'), unixepoch('2025-05-12T13:05:00+09:00'))
+          , (1, unixepoch('2025-05-12T12:10:00+09:00'), unixepoch('2025-05-12T13:10:00+09:00'))
+          , (2, unixepoch('2025-05-12T12:35:00+09:00'), unixepoch('2025-05-12T14:05:00+09:00'))
+        ;
+    """)
+    response1 = client.get("/api/views?page=1&size=1")
+    assert response1.status_code == 200
+    views1 = response1.json()
+    assert views1 == [
+        {
+            "program_id": 2,
+            "viewed_time": "2025-05-12T12:35:00+09:00",
+            "created_at": "2025-05-12T14:05:00+09:00",
+        },
+    ]
+
+    response2 = client.get("/api/views?page=2&size=1")
+    assert response2.status_code == 200
+    views2 = response2.json()
+    assert views2 == [
+        {
+            "program_id": 1,
+            "viewed_time": "2025-05-12T12:10:00+09:00",
+            "created_at": "2025-05-12T13:10:00+09:00",
+        },
+    ]
+
+    response3 = client.get("/api/views?page=1&size=2")
+    assert response3.status_code == 200
+    views3 = response3.json()
+    assert views3 == [
+        {
+            "program_id": 2,
+            "viewed_time": "2025-05-12T12:35:00+09:00",
+            "created_at": "2025-05-12T14:05:00+09:00",
+        },
+        {
+            "program_id": 1,
+            "viewed_time": "2025-05-12T12:10:00+09:00",
+            "created_at": "2025-05-12T13:10:00+09:00",
+        },
+    ]
+
+    response4 = client.get("/api/views?page=2&size=2")
+    assert response4.status_code == 200
+    views4 = response4.json()
+    assert views4 == [
+        {
+            "program_id": 1,
+            "viewed_time": "2025-05-12T12:05:00+09:00",
+            "created_at": "2025-05-12T13:05:00+09:00",
+        },
+    ]
+
+    response5 = client.get("/api/views?page=3&size=2")
+    assert response5.status_code == 200
+    views5 = response5.json()
+    assert views5 == []
+
 def test_create_view(con, client):
-    response = client.post("/api/viewes", json={
+    response = client.post("/api/views", json={
         "program": {
             "event_id": 11,
             "service_id": 101,
@@ -49,7 +143,7 @@ def test_create_view_延長でdurationが延びる(con, client):
         INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'));
     """)
-    response = client.post("/api/viewes", json={
+    response = client.post("/api/views", json={
         "program": {
             "event_id": 11,
             "service_id": 101,
@@ -70,7 +164,7 @@ def test_create_view_延長でdurationが縮む(con, client):
         INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'));
     """)
-    response = client.post("/api/viewes", json={
+    response = client.post("/api/views", json={
         "program": {
             "event_id": 11,
             "service_id": 101,
@@ -91,7 +185,7 @@ def test_create_view_created_atより前のviewed_timeでdurationが変化して
         INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'));
     """)
-    response = client.post("/api/viewes", json={
+    response = client.post("/api/views", json={
         "program": {
             "event_id": 11,
             "service_id": 101,
@@ -117,7 +211,8 @@ def test_create_view_created_atより前のviewed_timeでdurationが変化して
 def test_get_recording(con, client):
     con.executescript("""
         INSERT INTO programs (id, event_id, service_id, name, start_time, duration, text, ext_text, created_at) VALUES
-            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, 'Text', 'Ext Text', unixepoch('2025-05-12T12:01:00+09:00'));
+            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, 'Text', 'Ext Text', unixepoch('2025-05-12T12:01:00+09:00'))
+        ;
         INSERT INTO recordings (id, program_id, file_path, watched_at, deleted_at, created_at) VALUES
             (1, 1, '//server/recorded/test1', unixepoch('2025-05-12T13:00:00+09:00'), NULL, unixepoch('2025-05-12T12:30:00+09:00'))
           , (2, 1, '//server/recorded/test1_2', unixepoch('2025-05-12T13:00:00+09:00'), NULL, unixepoch('2025-05-12T12:30:00+09:00'))

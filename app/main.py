@@ -94,16 +94,8 @@ def recordings(request: Request, params: Annotated[RecordingQueryParams, Depends
         request=request, name="recordings.html", context={"recordings": recordings})
 
 @app.get("/views", response_class=HTMLResponse)
-def views(request: Request, con: DbConnectionDep):
-    cur = con.cursor()
+def views(request: Request, params: Annotated[api.ViewQueryParams, Depends()], con: DbConnectionDep):
+    views = api.get_views(params, con)
 
-    cur.execute("""
-        SELECT program_id, viewed_time AS "viewed_time [timestamp]", programs.name,
-            views.created_at AS "created_at [timestamp]"
-        FROM views
-        INNER JOIN programs ON programs.id = views.program_id
-        ORDER BY "created_at [timestamp]" DESC
-    """)
-    views = cur.fetchall()
     return templates.TemplateResponse(
-        request=request, name="views.html", context={"views": views})
+        request=request, name="views.html", context={"views": views, "params": params})

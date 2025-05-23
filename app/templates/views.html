@@ -5,17 +5,21 @@
 <table>
   <thead>
     <tr>
-      <td>program_id</td>
-      <td>viewed_time</td><td>name</td><td>created_at</td>
-    </tr>
-  </thead>
+      <td>program_id
+      <td>viewed_time
+      <td>created_at
   <tbody>
   {% for item in views %}
     <tr>
-      <td><a href="{{ url_for('get_program', id=item.program_id) }}">{{ item.program_id }}</a></td>
-      <td>{{ item.viewed_time.strftime("%Y/%m/%d(%a) %H:%M:%S") }}</td><td>{{ item.name }}</td><td>{{ item.created_at.strftime("%Y/%m/%d(%a) %H:%M:%S") }}</td>
-    </tr>
+      <td><a href="{{ url_for('get_program', id=item.program_id) }}">{{ item.program_id }}</a>
+      <td>{{ item.viewed_time.strftime("%Y/%m/%d(%a) %H:%M:%S") }}
+      <td>{{ item.created_at.strftime("%Y/%m/%d(%a) %H:%M:%S") }}
   {% endfor %}
-  </tbody>
 </table>
+
+<form>
+  <input type="hidden" name="page" value="{{ params.page + 1 }}">
+  <button type="submit">次</button>
+</form>
+
 {% endblock %}

@@ -22,7 +22,7 @@ def run_job(poll_status_url: str):
             "viewed_time": status["tot"]
         }
         data = json.dumps(body).encode('utf-8')
-        req = urllib.request.Request('http://mytvlog/api/viewes', data=data, method='POST')
+        req = urllib.request.Request('http://mytvlog/api/views', data=data, method='POST')
         req.add_header('Content-Type', 'application/json')
         with urllib.request.urlopen(req, timeout=10) as res:
             pass

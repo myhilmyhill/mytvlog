@@ -25,23 +25,26 @@ class MarkerPlot extends HTMLElement {
   }
 
   connectedCallback() {
-    const data = JSON.parse(this.getAttribute('data') || '[]')
-    const min = parseFloat(this.getAttribute('min') || '0')
-    const max = parseFloat(this.getAttribute('max') || '100')
-    const unit = parseFloat(this.getAttribute('width') || '1')
+    this.render()
+  }
 
-    const svgNS = "http://www.w3.org/2000/svg"
-    //const svg = document.createElementNS(svgNS, 'svg')
-    //this.appendChild(svg)
+  render() {
+    const svg = this._svg
+    while (svg.firstChild) svg.removeChild(svg.firstChild)
+
+    const data = JSON.parse(this.getAttribute('data') ?? '[]')
+    const min = parseFloat(this.getAttribute('min') ?? '0')
+    const max = parseFloat(this.getAttribute('max') ?? '100')
+    const unit = parseFloat(this.getAttribute('width') ?? '1')
 
     requestAnimationFrame(() => {
-      const svg = this._svg
       const svgWidth = svg.clientWidth
       const svgHeight = svg.clientHeight
       const scale = svgWidth / (max - min)
       const markerWidthPx = unit * scale
       const markerHeightPx = Math.min(markerWidthPx, svgHeight)
 
+      const svgNS = "http://www.w3.org/2000/svg"
       data.forEach(x => {
         const cx = (x - min) * scale
         const cy = svgHeight / 2
