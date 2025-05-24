@@ -2,8 +2,8 @@
 {% block content %}
 <script>
   function $(q) { return document.querySelector(q) }
-  function patch(body) {
-    return fetch(`/api/recordings/${$('#recording-id').textContent}`, {
+  function patch(id, body) {
+    return fetch(`/api/recordings/${id}`, {
       headers: { 'Content-Type': 'application/json' },
       method: 'PATCH',
       body: JSON.stringify(body),
@@ -11,59 +11,81 @@
   }
 
   async function openDialog(id) {
-    $('#recording-id').textContent = id
-    const r = await fetch(`/api/recordings/${id}`).then(r => r.json())
-    $('#name').textContent = r.program.name
-    $('#file-path').textContent = r.file_path
-    $('#operation').showModal()
-  }
+    const op = $('#op')
+    for (const s of op.querySelectorAll('section')) op.removeChild(s)
+    const rs = await(await fetch(`/api/recordings?program_id=${id}`)).json()
+    $('#name').textContent = rs[0].program.name
 
-  function patchFileFolder() { patch({ file_folder: "{{ dst_root }}" }).then(() => location.reload()) }
-  function patchWatched() { patch({ watched_at: new Date().toISOString() }).then(() => location.reload()) }
-  function patchWatchedAndFileFolder() {
-    patch({ watched_at: new Date().toISOString(), file_folder: "{{ dst_root }}" }).then(() => location.reload())
+    for (const r of rs) {
+      const c = $('#recordings-template').content.cloneNode(true)
+      const $c = (q) => c.querySelector(q)
+      $c('.recording-id').textContent = r.id
+      $c('.file-path').value = r.file_path
+      $c('.file-folder').value = r.file_folder
+      $c('.play').onclick = () => play(r.file_path)
+      $('#op').appendChild(c)
+    }
+    $('#op').showModal()
   }
-  function patchDeleled() { patch({ deleted_at: new Date().toISOString() }).then(() => location.reload()) }
-  function patchWatchedAndDeleted() {
-    patch({ watched_at: new Date().toISOString(), deleted_at: new Date().toISOString() }).then(() => location.reload())
+  function searchId(e) { return e.closest('dl').querySelector('.recording-id').textContent }
+  function searchFileFolder(e) { return e.closest('dl').querySelector('.file-folder').value }
+
+  function patchFileFolder(e) { patch(searchId(e), { file_folder: searchFileFolder(e) }).then(() => location.reload()) }
+  function patchWatched(e) { patch(searchId(e), { watched_at: new Date().toISOString() }).then(() => location.reload()) }
+  function patchWatchedAndFileFolder(e) {
+    patch(searchId(e), { watched_at: new Date().toISOString(), file_folder: searchFileFolder(e) }).then(() => location.reload())
+  }
+  function patchDeleted(e) { patch(searchId(e), { deleted_at: new Date().toISOString() }).then(() => location.reload()) }
+  function patchWatchedAndDeleted(e) {
+    patch(searchId(e), { watched_at: new Date().toISOString(), deleted_at: new Date().toISOString() }).then(() => location.reload())
   }
 </script>
 
-<a href="/programs">Programs</a>
-<a href="/recordings">Recordings</a>
-<a href="/views">Views</a>
-
 <h1>Digestions</h1>
 <table>
-{% for item in agg %}
-    <tr><td><marker-plot
-      min="{{ item.start_time }}"
-      max="{{ item.start_time + item.duration }}"
-      data="{{ item.views or '[]' }}"
+{% for d in digestions %}
+  <tr>
+    <td><marker-plot
+      min="{{ d.start_time_timestamp }}"
+      max="{{ d.end_time_timestamp }}"
+      data="{{ d.viewed_times_timestamp }}"
       width="{{ 5 * 60 * 2 }}">
-    </marker-plot></td>
+    </marker-plot>
     <td>
-    {% for rec_id, watched, file_path in rec_zip(item.id) %}
-      <button onclick='openDialog({{ rec_id }}, {{ item.name | tojson | safe }}, {{ file_path | tojson | safe }})'>{{ watched }}</button>
-    {% endfor %}
-    </td>
-    <td>{{ item.start_time_string.strftime("%Y/%m/%d(%a) %H:%M") }}</td><td>{{ item.name }}</td>
+      <button onclick='openDialog({{ d.id }})'>⋮</button>
+    <td>{{ d.start_time.strftime("%Y/%m/%d(%a) %H:%M") }}
+    <td>{{ d.name }}
 {% endfor %}
 </table>
 
-<dialog id="operation" closedby="any">
+<dialog id="op" closedby="any">
   <h2 id="name"></h2>
-  <dl>
-    <dt>recording_id</dt><dd id="recording-id"></dd>
-    <dt>file_path</dt><dd id="file-path"></dd>
-  </dl>
-  <nav>
-    <button onclick="play($('#file-path').textContent)">再生</button>
-  </nav>
-  <button onclick="patchFileFolder()">移動</button>
-  <button onclick="patchWatchedAndFileFolder()">移動＋視聴済み</button>
-  <button onclick="patchWatched()">視聴済み</button>
-  <button onclick="confirm() && patchDeleted()">削除</button>
-  <button onclick="confirm() && patchWatchedAndDeleted()">視聴済み＋削除</button>
+
+  <template id="recordings-template">
+    <section>
+      <dl>
+        <dt>recording_id
+        <dd class="recording-id">
+        <dt>file_path
+        <dd>
+          <input class="file-path" type="text" readonly>
+          <button class="play">再生</button>
+        <dt>file_folder
+        <dd>
+          <input class="file-folder" type="text" list="roots">
+          <button onclick="patchFileFolder(this)">移動</button>
+          <button onclick="patchWatchedAndFileFolder(this)">移動＋視聴済み</button>
+        <dt>op
+        <dd>
+          <button onclick="patchWatched(this)">視聴済み</button>
+          <button onclick="patchDeleted(this)">削除</button>
+          <button onclick="patchWatchedAndDeleted(this)">視聴済み＋削除</button>
+      </dl>
+    </section>
+  </template>
+
+  <datalist id="roots">
+    <option value="{{ dst_root }}">
+  </datalist>
 </dialog>
 {% endblock %}

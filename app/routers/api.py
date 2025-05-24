@@ -50,7 +50,12 @@ class ProgramGetBase(ProgramBase):
         return self.start_time + timedelta(seconds=self.duration)
 
 class ProgramGet(ProgramGetBase):
-    viewed_times: list[datetime]
+    viewed_times_json: str | None = Field(exclude=True)
+
+    @computed_field
+    @property
+    def viewed_times(self) -> list[datetime]:
+        return [datetime.fromtimestamp(t).astimezone(JST) for t in json.loads(self.viewed_times_json or '[]')]
 
 @router.get("/api/programs")
 def get_programs(params: Annotated[ProgramQueryParams, Depends()], con: DbConnectionDep):
@@ -58,7 +63,7 @@ def get_programs(params: Annotated[ProgramQueryParams, Depends()], con: DbConnec
         WITH agg_views AS (
             SELECT
                 program_id
-              , json_group_array(viewed_time) AS viewed_times_timestamp
+              , json_group_array(viewed_time) AS viewed_times_json
             FROM views
             GROUP BY program_id
         )
@@ -72,7 +77,7 @@ def get_programs(params: Annotated[ProgramQueryParams, Depends()], con: DbConnec
           , text
           , ext_text
           , created_at AS "created_at [timestamp]"
-          , coalesce(agg_views.viewed_times_timestamp, '[]') AS viewed_times_timestamp
+          , agg_views.viewed_times_json
         FROM programs
         LEFT OUTER JOIN agg_views ON agg_views.program_id = programs.id
         WHERE
@@ -91,10 +96,7 @@ def get_programs(params: Annotated[ProgramQueryParams, Depends()], con: DbConnec
     })
     rows = cur.fetchall()
 
-    return [ProgramGet(
-        **row,
-        viewed_times = [datetime.fromtimestamp(t).astimezone(JST) for t in json.loads(row["viewed_times_timestamp"])]
-        ) for row in rows]
+    return [ProgramGet(**row) for row in rows]
 
 @router.get("/api/programs/{id}")
 def get_program(id: int, con: DbConnectionDep):
@@ -104,7 +106,7 @@ def get_program(id: int, con: DbConnectionDep):
         WITH agg_views AS (
             SELECT
                 program_id
-              , json_group_array(viewed_time) AS viewed_times_timestamp
+              , json_group_array(viewed_time) AS viewed_times_json
             FROM views
             GROUP BY program_id
         )
@@ -118,7 +120,7 @@ def get_program(id: int, con: DbConnectionDep):
           , text
           , ext_text
           , created_at AS "created_at [timestamp]"
-          , coalesce(agg_views.viewed_times_timestamp, '[]') AS viewed_times_timestamp
+          , agg_views.viewed_times_json
         FROM programs
         LEFT OUTER JOIN agg_views ON agg_views.program_id = programs.id
         WHERE id = ?
@@ -127,10 +129,7 @@ def get_program(id: int, con: DbConnectionDep):
     if row is None:
         raise HTTPException(status_code=404)
 
-    return ProgramGet(
-        **row,
-        viewed_times = [datetime.fromtimestamp(t).astimezone(JST) for t in json.loads(row["viewed_times_timestamp"])]
-        )
+    return ProgramGet(**row)
 
 @router.post("/api/programs")
 @router.patch("/api/programs/{id}")
@@ -197,7 +196,7 @@ def get_views(params: Annotated[ViewQueryParams, Depends()], con: DbConnectionDe
               , created_at AS "created_at [timestamp]"
             FROM views
             WHERE program_id = ?
-            ORDER BY viewed_time DESC
+            ORDER BY created_at DESC
         """, (params.program_id,))
         rows = cur.fetchall()
     else:
@@ -208,7 +207,7 @@ def get_views(params: Annotated[ViewQueryParams, Depends()], con: DbConnectionDe
               , viewed_time AS "viewed_time [timestamp]"
               , created_at AS "created_at [timestamp]"
             FROM views
-            ORDER BY viewed_time DESC
+            ORDER BY created_at DESC
             LIMIT ? OFFSET ?
         """, (params.size, offset))
         rows = cur.fetchall()
@@ -228,6 +227,7 @@ def create_view(item: ViewPost, con: DbConnectionDep):
     return
 
 class RecordingQueryParams(BaseModel):
+    program_id: int | None = Query(default=None)
     from_: Annotated[JSTDatetime | None | Literal[""], Field(default=None)]
     # TODO: バグでaliasだと常にデフォルトになる
     # from_: Annotated[JSTDatetime | None | Literal[""], Field(default=None, alias="from")] = None
@@ -293,12 +293,14 @@ def get_recordings(params: Annotated[RecordingQueryParams, Depends()], con: DbCo
         FROM recordings INNER JOIN programs ON programs.id = recordings.program_id
         WHERE
             TRUE
+          AND (:program_id IS NULL OR programs.id = :program_id)
           AND (:from IS NULL OR :from <= programs.start_time)
           AND (:to IS NULL OR programs.start_time + programs.duration < :to)
           AND (:watched = TRUE OR recordings.watched_at IS NULL)
           AND (:deleted = TRUE OR recordings.deleted_at IS NULL)
-        ORDER BY programs.start_time DESC
+        ORDER BY programs.start_time DESC, recordings.created_at
     """, {
+        "program_id": params.program_id,
         "from": params.from_ if params.from_ else None,
         "to": params.to + timedelta(days=1) if params.to else None,
         "watched": bool(params.watched),
@@ -441,3 +443,51 @@ def patch_recording(
     if accepted:
         response.status_code = status.HTTP_202_ACCEPTED
     return get_recording(id, con)
+
+class Digestion(BaseModel):
+    id: int
+    name: str
+    service_id: int
+    start_time: datetime
+    duration: int
+    viewed_times_json: str | None = Field(exclude=True)
+
+    @computed_field
+    @property
+    def end_time(self) -> datetime:
+        return self.start_time + timedelta(seconds=self.duration)
+
+    @computed_field
+    @property
+    def viewed_times(self) -> list[datetime]:
+        return [datetime.fromtimestamp(t).astimezone(JST) for t in json.loads(self.viewed_times_json or '[]')]
+
+@router.get("/api/digestions", response_model=list[Digestion])
+def get_digestions(con: DbConnectionDep):
+    cur = con.execute("""
+        WITH agg_views AS (
+            SELECT
+                program_id
+              , json_group_array(viewed_time) AS viewed_times_json
+            FROM views
+            GROUP BY program_id
+        )
+        SELECT
+            programs.id
+          , programs.name
+          , programs.service_id
+          , programs.start_time
+          , programs.duration
+          , agg_views.viewed_times_json
+        FROM programs
+        LEFT OUTER JOIN agg_views ON agg_views.program_id = programs.id
+        WHERE
+            EXISTS(
+                SELECT 1
+                FROM recordings
+                WHERE program_id = programs.id AND watched_at IS NULL AND deleted_at IS NULL
+                )
+        ORDER BY programs.start_time
+    """)
+    rows = cur.fetchall()
+    return [Digestion(**row) for row in rows]

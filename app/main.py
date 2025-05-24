@@ -19,43 +19,16 @@ dst_root = os.environ["dst_root"]
 
 @app.get("/", response_class=HTMLResponse)
 def digestions(request: Request, con: DbConnectionDep):
-    cur = con.cursor()
-
-    cur.execute("""
-        WITH agg_recs AS(
-            SELECT
-                program_id, json_group_array(id) AS rec_ids
-                ,
-                json_group_array(CASE WHEN watched_at IS NOT NULL THEN 1 ELSE 0 END) AS watcheds
-                ,
-                json_group_array(file_path) AS file_paths
-            FROM recordings
-            WHERE watched_at IS NULL AND deleted_at IS NULL
-            GROUP BY program_id
-        )
-        , agg_views AS (
-            SELECT program_id, json_group_array(viewed_time) AS views
-            FROM views
-            GROUP BY program_id
-        )
-        SELECT
-            programs.id, programs.name, programs.service_id, programs.start_time, programs.duration
-            ,
-            programs.start_time AS "start_time_string [timestamp]"
-            ,
-            agg_views.views
-            ,
-            agg_recs.rec_ids, agg_recs.watcheds, agg_recs.file_paths
-        FROM programs
-        INNER JOIN agg_recs ON agg_recs.program_id = programs.id
-        LEFT OUTER JOIN agg_views ON agg_views.program_id = programs.id
-        ORDER BY programs.start_time
-    """)
-    agg = cur.fetchall()
-    rec_zip = lambda id: zip(*next([json.loads(x["rec_ids"]), json.loads(x["watcheds"]), json.loads(x["file_paths"])] for x in agg if x["id"] == id))
-
+    digestions_raw = api.get_digestions(con)
+    digestions = []
+    for d in digestions_raw:
+        d_dict = d.model_dump()
+        d_dict["start_time_timestamp"] = int(d.start_time.timestamp())
+        d_dict["end_time_timestamp"] = int(d.end_time.timestamp())
+        d_dict["viewed_times_timestamp"] = [int(t.timestamp()) for t in d.viewed_times]
+        digestions.append(d_dict)
     return templates.TemplateResponse(
-        request=request, name="index.html", context={"agg": agg, "rec_zip": rec_zip, "dst_root": dst_root})
+        request=request, name="index.html", context={"digestions": digestions, "dst_root": dst_root})
 
 @app.get("/programs", response_class=HTMLResponse)
 def programs(request: Request, params: Annotated[api.ProgramQueryParams, Depends()], con: DbConnectionDep):
