@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field, computed_field
 from datetime import datetime, timezone, timedelta
 from sqlite3 import Connection
 import json
+import re
 from ..smb import SMB
 from ..dependencies import JSTDatetime, JST, DbConnectionDep, DbConnectionFactoryDep, SmbDep
 from .recordings import import_api, validate
@@ -235,6 +236,7 @@ class RecordingQueryParams(BaseModel):
     to: JSTDatetime | None | Literal[""] = Query(default=None)
     watched: bool | Literal["on"] = Query(default=True)
     deleted: bool | Literal["on"] = Query(default=False)
+    file_folder: str = Query(default="")
 
 class RecordingBase(BaseModel):
     program: ProgramBase
@@ -300,6 +302,7 @@ def get_recordings(params: Annotated[RecordingQueryParams, Depends()], con: DbCo
           AND (:to IS NULL OR programs.start_time + programs.duration < :to)
           AND (:watched = TRUE OR recordings.watched_at IS NULL)
           AND (:deleted = TRUE OR recordings.deleted_at IS NULL)
+          AND (:file_folder = '' OR recordings.file_path REGEXP '^//[^/]+/' || :file_folder || '/.*$')
         ORDER BY programs.start_time DESC, recordings.created_at
     """, {
         "program_id": params.program_id,
@@ -307,6 +310,7 @@ def get_recordings(params: Annotated[RecordingQueryParams, Depends()], con: DbCo
         "to": params.to + timedelta(days=1) if params.to else None,
         "watched": bool(params.watched),
         "deleted": bool(params.deleted),
+        "file_folder": params.file_folder,
         })
     rows = cur.fetchall()
     return [
@@ -360,6 +364,9 @@ def get_recording(id: int, con: DbConnectionDep):
 
 @router.post("/api/recordings", response_model=RecordingGet)
 def create_recording(item: Annotated[RecordingPost, Body()], con: DbConnectionDep, smb: SmbDep):
+    if not re.fullmatch("//[^/]+/[^/]+/.*", item.file_path):
+        raise HTTPException(status_code=400, detail="Invalid file_path; should be '//server/folder/to/file'")
+
     program_id = get_or_create_program(con, item.program, item.created_at, item.created_at)
 
     cur = con.execute("""
@@ -413,7 +420,7 @@ def patch_recording(
         file_path_splited = file_path.split("/")    # //server/folder/to/file
 
         if len(file_path_splited) < 3:
-            raise HTTPException(status_code=400, detail="Invalid file_path; should be '//server/folder/to/file'")
+            raise HTTPException(status_code=500, detail="Invalid file_path")
 
         file_path_splited[3] = item.file_folder
         item.file_path = diff["file_path"] = "/".join(file_path_splited)
@@ -429,7 +436,7 @@ def patch_recording(
         accepted = True
 
     elif "file_path" in diff:
-        if len(file_path_splited) < 3:
+        if not re.fullmatch("//[^/]+/[^/]+/.*", diff["file_path"]):
             raise HTTPException(status_code=400, detail="Invalid file_path; should be '//server/folder/to/file'")
 
         con.execute("UPDATE recordings SET file_path = ? WHERE id = ?", (item.file_path, id))

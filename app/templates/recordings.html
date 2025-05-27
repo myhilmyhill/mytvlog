@@ -45,6 +45,7 @@
     <label>To<input type="date" name="to" value="{{ request.query_params.to }}"></label>
     <label>視聴済みも含む<input type="checkbox" name="watched" {{ 'checked' if request.query_params.watched }}></label>
     <label>削除済みも含む<input type="checkbox" name="deleted" {{ 'checked' if request.query_params.deleted }}></label>
+    <label>file_folder<input type="text" name="file_folder" value={{ request.query_params.file_folder }}></label>
     <button type="submit">Search</button>
   </fieldset>
 </form>

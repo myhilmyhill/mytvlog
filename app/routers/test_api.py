@@ -1,6 +1,16 @@
 import pytest
 from ..conftest import con, client, smb
 
+INVALID_FILE_PATHS = [
+    "/server/repo/not_double_slash_start",
+    "///server/repo/too_many_slash",
+    "//server//missing_repo_name",
+    "//server/repo_no_trailing",
+    "no_slash_prefix/server/repo",
+    "//onlyserver",
+    "not_full_path",
+]
+
 def test_get_program(con, client):
     con.executescript("""
         INSERT INTO programs (id, event_id, service_id, name, start_time, duration, text, ext_text, created_at) VALUES
@@ -528,7 +538,30 @@ def test_get_recordings_deleted(con, client):
     recordings2 = response2.json()
     assert len(recordings2) == 2
 
-def test_create_recording(con, client):
+def test_get_recordings_file_folder(con, client):
+    con.executescript("""
+        INSERT INTO programs (id, event_id, service_id, name, start_time, duration, text, ext_text, created_at) VALUES
+            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, 'Text', 'Ext Text', unixepoch('2025-05-12T12:01:00+09:00'))
+        ;
+        INSERT INTO recordings (id, program_id, file_path, created_at) VALUES
+            (1, 1, '//server/recorded1/test1', unixepoch('2025-05-12T12:30:00+09:00'))
+          , (2, 1, '//server/recorded2/test1', unixepoch('2025-05-12T12:30:00+09:00'))
+        ;
+    """)
+    response1 = client.get("/api/recordings?file_folder=recorded1")
+    assert response1.status_code == 200
+    recordings1 = response1.json()
+    assert len(recordings1) == 1
+    assert recordings1[0]["id"] == 1
+    response2 = client.get("/api/recordings?file_folder=recorded2")
+    assert response2.status_code == 200
+    recordings2 = response2.json()
+    assert len(recordings2) == 1
+    assert recordings2[0]["id"] == 2
+
+def test_create_recording(con, client, smb):
+    smb.get_file_size.return_value = 1_000_000_000
+
     response = client.post("/api/recordings", json={
         "program": {
             "event_id": 11,
@@ -564,6 +597,25 @@ def test_create_recording(con, client):
             "created_at": "2025-05-12T12:30:00+09:00",
         },
     }
+
+@pytest.mark.parametrize("in_file_path", INVALID_FILE_PATHS)
+def test_create_recordings_file_path_指定書式以外は例外(in_file_path, con, client, smb):
+    smb.get_file_size.return_value = 1_000_000_000
+
+    response = client.post("/api/recordings", json={
+        "program": {
+            "event_id": 11,
+            "service_id": 101,
+            "name": "Test Program",
+            "start_time": "2025-05-12T12:00:00+09:00",
+            "duration": 1800,
+            "text": "Text",
+            "ext_text": "Ext Text",
+        },
+        "file_path": in_file_path,
+        "created_at": "2025-05-12T12:30:00+09:00",
+    })
+    assert response.status_code == 400
 
 def test_patch_recording_set_watched(con, client, smb):
     con.executescript("""
@@ -660,10 +712,12 @@ def test_patch_recording_unset_deleted(con, client):
 
 def test_patch_recording_change_file_path(con, client, smb):
     con.executescript("""
-        INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
-            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'));
-        INSERT INTO recordings (id, program_id, file_path, watched_at, deleted_at, created_at) VALUES
-            (1, 1, '//server/recorded/test1', NULL, NULL, unixepoch('2025-05-12T12:30:00+09:00'));
+        INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at) VALUES
+            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'))
+        ;
+        INSERT INTO recordings(id, program_id, file_path, created_at) VALUES
+            (1, 1, '//server/recorded/test1', unixepoch('2025-05-12T12:30:00+09:00'))
+        ;
     """)
 
     response = client.patch("/api/recordings/1", json={
@@ -676,3 +730,18 @@ def test_patch_recording_change_file_path(con, client, smb):
     assert recording["file_folder"] == "recorded2"
 
     smb.move_files_by_root.assert_not_called()
+
+@pytest.mark.parametrize("in_file_path", INVALID_FILE_PATHS)
+def test_patch_recordings_change_file_path_指定書式以外は例外(in_file_path, con, client):
+    con.executescript("""
+        INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at) VALUES
+            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'))
+        ;
+        INSERT INTO recordings(id, program_id, file_path, created_at) VALUES
+            (1, 1, '//server/recorded/test1', unixepoch('2025-05-12T12:30:00+09:00'))
+        ;
+    """)
+    response = client.patch("/api/recordings/1", json={
+        "file_path": in_file_path,
+    })
+    assert response.status_code == 400
