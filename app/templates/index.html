@@ -43,18 +43,26 @@
 
 <h1>Digestions</h1>
 <table>
+  <thead>
+    <tr>
+      <td>marker-plot
+      <td>op
+      <td>minutes
+      <td>name
+      <td>time
 {% for d in digestions %}
-  <tr>
-    <td><marker-plot
-      min="{{ d.start_time_timestamp }}"
-      max="{{ d.end_time_timestamp }}"
-      data="{{ d.viewed_times_timestamp }}"
-      width="{{ 5 * 60 * 2 }}">
-    </marker-plot>
-    <td>
-      <button onclick='openDialog({{ d.id }})'>⋮</button>
-    <td>{{ d.start_time.strftime("%Y/%m/%d(%a) %H:%M") }}
-    <td>{{ d.name }}
+  <tbody>
+    <tr>
+      <td><marker-plot
+        min="{{ d.start_time_timestamp }}"
+        max="{{ d.end_time_timestamp }}"
+        data="{{ d.viewed_times_timestamp }}"
+        width="{{ 5 * 60 * 2 }}">
+      </marker-plot>
+      <td><button onclick='openDialog({{ d.id }})'>⋮</button>
+      <td>{{ d.duration // 60 }}
+      <td>{{ d.name }}
+      <td>{{ d.start_time.strftime("%Y/%m/%d(%a) %H:%M") }}
 {% endfor %}
 </table>
 
@@ -78,8 +86,8 @@
         <dt>op
         <dd>
           <button onclick="patchWatched(this)">視聴済み</button>
-          <button onclick="patchDeleted(this)">削除</button>
-          <button onclick="patchWatchedAndDeleted(this)">視聴済み＋削除</button>
+          <button onclick="confirm() && patchDeleted(this)">削除</button>
+          <button onclick="confirm() && patchWatchedAndDeleted(this)">視聴済み＋削除</button>
       </dl>
     </section>
   </template>

@@ -4,6 +4,11 @@ from unittest.mock import AsyncMock
 from ...conftest import con, client, smb, edcb
 
 def test_import_recordings_dry_run(con, client, smb):
+    smb.get_file_size.side_effect = lambda path: {
+        "//recorded/test1": 1_000_000_001,
+        "//recorded/test2": 1_000_000_002,
+    }[path]
+
     response = client.post("/api/recordings/import-json", json={
       "dry_run": True,
       "imports": [
@@ -48,6 +53,7 @@ def test_import_recordings_dry_run(con, client, smb):
             "text": "Text",
             "ext_text": "Ext Text",
             "file_path": "//recorded/test1",
+            "file_size": 1_000_000_001,
             "created_at": "2025-05-12T12:31:00+09:00",
         },
         {
@@ -62,11 +68,17 @@ def test_import_recordings_dry_run(con, client, smb):
             "text": "Text 2",
             "ext_text": "Ext Text 2",
             "file_path": "//recorded/test2",
+            "file_size": 1_000_000_002,
             "created_at": "2025-05-12T13:31:00+09:00",
         },
     ]
 
 def test_import_recordings(con, client, smb):
+    smb.get_file_size.side_effect = lambda path: {
+        "//recorded/test1": 1_000_000_001,
+        "//recorded/test2": 1_000_000_002,
+    }[path]
+
     response = client.post("/api/recordings/import-json", json={
       "dry_run": False,
       "imports": [
@@ -116,6 +128,7 @@ def test_import_recordings(con, client, smb):
             },
             "file_path": "//recorded/test1",
             "file_folder": "test1",
+            "file_size": 1_000_000_001,
             "created_at": "2025-05-12T12:31:00+09:00",
             "watched_at": None,
             "deleted_at": None,
@@ -136,6 +149,7 @@ def test_import_recordings(con, client, smb):
             },
             "file_path": "//recorded/test2",
             "file_folder": "test2",
+            "file_size": 1_000_000_002,
             "created_at": "2025-05-12T13:31:00+09:00",
             "watched_at": None,
             "deleted_at": None,
@@ -144,44 +158,14 @@ def test_import_recordings(con, client, smb):
 
 def test_import_recordings_dry_run_すでに同じprogramsがあればそれを使う(con, client, smb):
     con.executescript("""
-        INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at)
-        VALUES(1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:31:00+09:00'));
+        INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at) VALUES
+        (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:31:00+09:00'))
+        ;
     """)
-    response = client.post("/api/recordings/import-json", json={
-      "dry_run": True,
-      "imports": [
-        {
-            "event_id": 11,
-            "service_id": 101,
-            "name": "Test Program",
-            "start_time": "2025-05-12T12:00:00+09:00",
-            "duration": 1800,
-            "file_path": "//recorded/test1",
-            "created_at": "2025-05-12T12:32:00+09:00",
-        },
-      ],
-    })
-    assert response.status_code == 200
-    assert recordings["count_programs"] == 0
-    assert recordings["count_recordings"] == 1
+    smb.get_file_size.side_effect = lambda path: {
+        "//recorded/test1": 1_000_000_001,
+    }[path]
 
-    recording = response.json()["preview_imports"][0]
-    assert recording["new_recording_id"] == 1
-    assert recording["temp_program_id"] == None
-    assert recording["existing_program_id"] == 1
-    assert recording["event_id"] == 11
-    assert recording["service_id"] == 101
-    assert recording["name"] == "Test Program"
-    assert recording["start_time"] == "2025-05-12T12:00:00+09:00"
-    assert recording["duration"] == 1800
-    assert recording["file_path"] == "//recorded/test1"
-    assert recording["created_at"] == "2025-05-12T12:32:00+09:00"
-
-def test_import_recordings_dry_run_すでに同じprogramsがあればそれを使う(con, client):
-    con.executescript("""
-        INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at)
-        VALUES(1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:31:00+09:00'));
-    """)
     response = client.post("/api/recordings/import-json", json={
       "dry_run": True,
       "imports": [
@@ -212,11 +196,15 @@ def test_import_recordings_dry_run_すでに同じprogramsがあればそれを�
     assert recording["file_path"] == "//recorded/test1"
     assert recording["created_at"] == "2025-05-12T12:32:00+09:00"
 
-def test_import_recordings_すでに同じprogramsがあればそれを使う(con, client):
+def test_import_recordings_すでに同じprogramsがあればそれを使う(con, client, smb):
     con.executescript("""
         INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at)
         VALUES(1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:31:00+09:00'));
     """)
+    smb.get_file_size.side_effect = lambda path: {
+        "//recorded/test1": 1_000_000_001,
+    }[path]
+
     response = client.post("/api/recordings/import-json", json={
       "dry_run": False,
       "imports": [
@@ -246,13 +234,17 @@ def test_import_recordings_すでに同じprogramsがあればそれを使う(co
     assert recording["file_path"] == "//recorded/test1"
     assert recording["created_at"] == "2025-05-12T12:32:00+09:00"
 
-def test_import_recordings_dry_runすでに同じファイルのrecordingがあれば登録しない(con, client):
+def test_import_recordings_dry_run_すでに同じファイルのrecordingがあれば登録しない(con, client, smb):
     con.executescript("""
         INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:31:00+09:00'));
-        INSERT INTO recordings (id, program_id, file_path, watched_at, deleted_at, created_at) VALUES
-            (1, 1, '//testserver/recorded/test1', NULL, NULL, unixepoch('2025-05-12T12:30:00+09:00'));
+        INSERT INTO recordings (id, program_id, file_path, file_size, watched_at, deleted_at, created_at) VALUES
+            (1, 1, '//testserver/recorded/test1', 1000000001, NULL, NULL, unixepoch('2025-05-12T12:30:00+09:00'));
     """)
+    smb.get_file_size.side_effect = lambda path: {
+        "//testserver/recorded/test1": 1_000_000_001,
+    }[path]
+
     response = client.post("/api/recordings/import-json", json={
       "dry_run": True,
       "imports": [
@@ -291,6 +283,10 @@ def test_import_recordings_from_edcb(con, client, smb, edcb):
             "rec_file_path": "/test2",
         },
     ]
+    smb.get_file_size.side_effect = lambda path: {
+        "//testserver/test1": 1_000_000_001,
+        "//testserver/test2": 1_000_000_002,
+    }[path]
     edcb.sendEnumRecInfoBasic = AsyncMock(return_value=r)
 
     response = client.post("/api/recordings/import-edcb", json={
@@ -314,6 +310,7 @@ def test_import_recordings_from_edcb(con, client, smb, edcb):
     assert recordings[0]["text"] == None
     assert recordings[0]["ext_text"] == None
     assert recordings[0]["file_path"] == "//testserver/test1"
+    assert recordings[0]["file_size"] == 1_000_000_001
     assert recordings[0]["created_at"] == "2025-05-12T12:32:00+09:00"
 
     assert recordings[1]["new_recording_id"] == 2
@@ -326,4 +323,5 @@ def test_import_recordings_from_edcb(con, client, smb, edcb):
     assert recordings[1]["text"] == None
     assert recordings[1]["ext_text"] == None
     assert recordings[1]["file_path"] == "//testserver/test2"
+    assert recordings[1]["file_size"] == 1_000_000_002
     assert recordings[1]["created_at"] == "2025-05-12T12:32:00+09:00"

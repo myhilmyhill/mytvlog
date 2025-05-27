@@ -99,7 +99,7 @@ class SMB:
         self.move_folder(src_dir, dst_dir)
         return dst_dir
 
-    def delete_files(self, src_file_or_pattern):
+    def delete_files(self, src_file_or_pattern) -> bool:
         self.reinit()
         if self._is_dir(src_file_or_pattern):
             raise IsADirectoryError(f"フォルダ: {src_file_or_pattern}")
@@ -125,19 +125,22 @@ class SMB:
                 return False
             raise
 
-    def exists(self, path):
+    def get_file_size(self, path) -> int | None:
         self.reinit()
         try:
-            stat(path)
-            return True
+            st = stat(path)
+            return st.st_size
         except FileNotFoundError:
-            return False
+            return None
         except SMBOSError as e:
             if "STATUS_OBJECT_NAME_NOT_FOUND" in str(e) or "c000003a" in str(e) or "0xc0000034" in str(e):
-                return False
+                return None
             raise
 
-    def _is_dir(self, path):
+    def exists(self, path) -> bool:
+        return self.get_file_size(path) is not None
+
+    def _is_dir(self, path) -> bool:
         self.reinit()
         try:
             st = stat(path)

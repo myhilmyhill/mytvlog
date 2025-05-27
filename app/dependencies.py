@@ -4,6 +4,7 @@ from pydantic import AfterValidator
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 import os
+import re
 import sqlite3
 from .smb import SMB
 from .edcb import CtrlCmdUtil
@@ -16,6 +17,11 @@ def localize_to_jst(dt: datetime) -> datetime:
     return dt.astimezone(JST)
 
 JSTDatetime = Annotated[datetime, AfterValidator(localize_to_jst)]
+
+def regexp(pattern, value):
+    if value is None:
+        return False
+    return re.search(pattern, value) is not None
 
 def make_db_connection(db_path, **kwargs):
     con = sqlite3.connect(db_path, detect_types=sqlite3.PARSE_COLNAMES, **kwargs)
@@ -32,6 +38,8 @@ def make_db_connection(db_path, **kwargs):
         return datetime.fromtimestamp(int(val)).astimezone(JST)
 
     sqlite3.register_converter("timestamp", convert_timestamp)
+
+    con.create_function("regexp", 2, regexp)
 
     return con
 

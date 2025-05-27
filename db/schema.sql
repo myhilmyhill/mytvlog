@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS "recordings"(
     id INTEGER PRIMARY KEY
   , program_id INTEGER NOT NULL
   , file_path TEXT NOT NULL
+  , file_size INTEGER
   , watched_at INTEGER
   , deleted_at INTEGER
   , created_at INTEGER NOT NULL

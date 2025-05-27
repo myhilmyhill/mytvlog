@@ -7,11 +7,11 @@ from sqlite3 import Connection
 import json
 from ..smb import SMB
 from ..dependencies import JSTDatetime, JST, DbConnectionDep, DbConnectionFactoryDep, SmbDep
-from .recordings import file_paths, import_api
+from .recordings import import_api, validate
 
 router = APIRouter()
-router.include_router(file_paths.router)
 router.include_router(import_api.router)
+router.include_router(validate.router)
 
 def extract_model_fields(model: type[BaseModel], row: dict, aliases: dict[str, str] = None) -> dict:
     aliases = aliases or {}
@@ -246,6 +246,7 @@ class RecordingBase(BaseModel):
 class RecordingGet(RecordingBase):
     program: ProgramGetBase
     id: int
+    file_size: int | None
 
     @computed_field
     @property
@@ -279,6 +280,7 @@ def get_recordings(params: Annotated[RecordingQueryParams, Depends()], con: DbCo
             recordings.id
           , recordings.program_id
           , recordings.file_path
+          , recordings.file_size
           , recordings.watched_at AS "watched_at [timestamp]"
           , recordings.deleted_at AS "deleted_at [timestamp]"
           , recordings.created_at AS "created_at [timestamp]"
@@ -327,6 +329,7 @@ def get_recording(id: int, con: DbConnectionDep):
             recordings.id
           , recordings.program_id
           , recordings.file_path
+          , recordings.file_size
           , recordings.watched_at AS "watched_at [timestamp]"
           , recordings.deleted_at AS "deleted_at [timestamp]"
           , recordings.created_at AS "created_at [timestamp]"
@@ -356,15 +359,16 @@ def get_recording(id: int, con: DbConnectionDep):
         )
 
 @router.post("/api/recordings", response_model=RecordingGet)
-def create_recording(item: Annotated[RecordingPost, Body()], con: DbConnectionDep):
+def create_recording(item: Annotated[RecordingPost, Body()], con: DbConnectionDep, smb: SmbDep):
     program_id = get_or_create_program(con, item.program, item.created_at, item.created_at)
 
     cur = con.execute("""
-        INSERT INTO recordings (program_id, file_path, watched_at, deleted_at, created_at)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO recordings (program_id, file_path, file_size, watched_at, deleted_at, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
     """, (
         program_id,
         item.file_path,
+        smb.get_file_size(item.file_path),
         item.watched_at,
         item.deleted_at,
         item.created_at,
@@ -390,7 +394,7 @@ def patch_recording(
                 smb.delete_files(f"{file_path}*")
 
                 with con_factory() as con:
-                    con.execute("UPDATE recordings SET file_path = ? WHERE id = ?", ("", id))
+                    con.execute("UPDATE recordings SET file_path = ?, file_size = NULL WHERE id = ?", ("", id))
                     con.commit()
 
             background_tasks.add_task(delete_file, con_factory)
@@ -425,6 +429,9 @@ def patch_recording(
         accepted = True
 
     elif "file_path" in diff:
+        if len(file_path_splited) < 3:
+            raise HTTPException(status_code=400, detail="Invalid file_path; should be '//server/folder/to/file'")
+
         con.execute("UPDATE recordings SET file_path = ? WHERE id = ?", (item.file_path, id))
 
     cur = con.execute("""

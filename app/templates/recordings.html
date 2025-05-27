@@ -59,16 +59,18 @@
       <td>watched
       <td>deleted
       <td>file_folder
+      <td>file_size
   <tbody>
-  {% for item in recordings %}
+  {% for r in recordings %}
     <tr>
-      <td><a href="{{ url_for('get_recording', id=item.id) }}">{{ item.id }}</a>
-      <td><a href="{{ url_for('get_program', id=item.program.id) }}">{{ item.program.id }}</a>
-      <td>{{ item.program.name }}
-      <td><button onclick="openDialog({{ item.id }})">⋮</button>
-      <td>{{ '1' if item.watched_at }}
-      <td>{{ '1' if item.deleted_at }}
-      <td>{{ item.file_folder }}
+      <td><a href="{{ url_for('get_recording', id=r.id) }}">{{ r.id }}</a>
+      <td><a href="{{ url_for('get_program', id=r.program.id) }}">{{ r.program.id }}</a>
+      <td>{{ r.program.name }}
+      <td><button onclick="openDialog({{ r.id }})">⋮</button>
+      <td>{{ 1 if r.watched_at }}
+      <td>{{ 1 if r.deleted_at }}
+      <td>{{ r.file_folder if r.file_folder }}
+      <td>{{ r.file_size|filesizeformat if r.file_size }}
   {% endfor %}
 </table>
 
@@ -90,7 +92,7 @@
     <dd>
       <input id="folder" type="text" list="roots">
       <datalist id="roots">
-        {% for v in ["ammann"] %}<option value="{{ v }}"></option>{% endfor %}
+        {% for v in ["ammann"] %}<option value="{{ v }}">{% endfor %}
       </datalist>
       <button onclick="patchFileFolder()">移動</button>
     <dt>watched_at
@@ -106,6 +108,5 @@
     <dt>marker_plot
       <dd><marker-plot id="marker-plot"></marker-plot>
   </dl>
-  <button onclick="play($('#file-path').value)">再生</button>
 </dialog>
 {% endblock %}

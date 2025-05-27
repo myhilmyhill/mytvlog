@@ -23,8 +23,8 @@ class ImportRecordingFromJson(BaseModel):
     imports: list[BulkImport]
 
 @router.post("/api/recordings/import-json")
-def import_recordings_from_json(body: Annotated[ImportRecordingFromJson, Body()], con: DbConnectionDep):
-    return bulk_import(body.model_dump()["imports"], body.dry_run, con)
+def import_recordings_from_json(body: Annotated[ImportRecordingFromJson, Body()], con: DbConnectionDep, smb: SmbDep):
+    return bulk_import(body.model_dump()["imports"], body.dry_run, con, smb)
 
 class ImportRecordingFromEdcb(BaseModel):
     dry_run: bool
@@ -47,12 +47,18 @@ def import_recordings_from_edcb(body: Annotated[ImportRecordingFromEdcb, Body()]
             "created_at": body.recording_created_at,
         }
         for info in imports
-        if len(info.get("rec_file_path")) > 0 and smb.exists(f"//{body.smb_server}{info['rec_file_path']}")
+        if len(info.get("rec_file_path")) > 0
         ]
-    return {"count_edcb_recordings": len(imports), **bulk_import(imports, body.dry_run, con)}
+    return {"count_edcb_recordings": len(imports), **bulk_import(imports, body.dry_run, con, smb)}
 
-def bulk_import(bulk_imports: list[dict], dry_run: bool, con: DbConnectionDep):
+def bulk_import(bulk_imports: list[dict], dry_run: bool, con: DbConnectionDep, smb: SmbDep):
     count_input = len(bulk_imports)
+
+    bulk_imports = [{
+        **b,
+        "file_size": smb.get_file_size(b["file_path"]),
+    } for b in bulk_imports if smb.exists(b["file_path"])]
+
     con.executescript("""
         CREATE TEMP TABLE bulk_imports(
             id INTEGER PRIMARY KEY
@@ -64,6 +70,7 @@ def bulk_import(bulk_imports: list[dict], dry_run: bool, con: DbConnectionDep):
           , text TEXT
           , ext_text TEXT
           , file_path TEXT
+          , file_size INTEGER
           , created_at INTEGER
         ) STRICT
         ;
@@ -84,14 +91,15 @@ def bulk_import(bulk_imports: list[dict], dry_run: bool, con: DbConnectionDep):
           , temp_program_id INTEGER
           , existing_program_id INTEGER
           , file_path TEXT
+          , file_size INTEGER
           , created_at INTEGER
         ) STRICT
         ;
     """)
 
     con.executemany("""
-        INSERT INTO bulk_imports(event_id, service_id, name, start_time, duration, text, ext_text, file_path, created_at)
-        VALUES(:event_id, :service_id, :name, :start_time, :duration, :text, :ext_text, :file_path, :created_at)
+        INSERT INTO bulk_imports(event_id, service_id, name, start_time, duration, text, ext_text, file_path, file_size, created_at)
+        VALUES(:event_id, :service_id, :name, :start_time, :duration, :text, :ext_text, :file_path, :file_size, :created_at)
     """, bulk_imports)
 
     count_programs = con.execute("""
@@ -106,9 +114,9 @@ def bulk_import(bulk_imports: list[dict], dry_run: bool, con: DbConnectionDep):
         )
     """).rowcount
     count_recordings = con.execute("""
-        INSERT INTO imports_recordings(temp_program_id, existing_program_id, file_path, created_at)
+        INSERT INTO imports_recordings(temp_program_id, existing_program_id, file_path, file_size, created_at)
         SELECT
-            ip.id, p.id, b.file_path, b.created_at
+            ip.id, p.id, b.file_path, b.file_size, b.created_at
         FROM bulk_imports b
         LEFT OUTER JOIN imports_programs AS ip ON
             ip.event_id = b.event_id
@@ -140,12 +148,17 @@ def bulk_import(bulk_imports: list[dict], dry_run: bool, con: DbConnectionDep):
                   , coalesce(p.ext_text, ip.ext_text) AS ext_text
                   , ir.id AS new_recording_id
                   , ir.file_path
+                  , ir.file_size
                   , ir.created_at AS "created_at [timestamp]"
                 FROM imports_recordings AS ir
                 LEFT OUTER JOIN imports_programs ip ON ip.id = ir.temp_program_id
                 LEFT OUTER JOIN programs p ON p.id = ir.existing_program_id
             """)
-            return {"count_programs": count_programs, "count_recordings": count_recordings, "preview_imports": cur.fetchall()}
+            return {
+                "count_programs": count_programs,
+                "count_recordings": count_recordings,
+                "preview_imports": cur.fetchall(),
+            }
         finally:
             con.rollback()
 
@@ -154,8 +167,8 @@ def bulk_import(bulk_imports: list[dict], dry_run: bool, con: DbConnectionDep):
         SELECT event_id, service_id, name, start_time, duration, text, ext_text, created_at
         FROM imports_programs
         ;
-        INSERT INTO recordings(program_id, file_path, created_at)
-        SELECT p.id, ir.file_path, ir.created_at
+        INSERT INTO recordings(program_id, file_path, file_size, created_at)
+        SELECT p.id, ir.file_path, ir.file_size, ir.created_at
         FROM imports_recordings AS ir
         LEFT OUTER JOIN imports_programs AS ip ON ip.id = ir.temp_program_id
         LEFT OUTER JOIN programs AS p ON p.id = ir.existing_program_id
