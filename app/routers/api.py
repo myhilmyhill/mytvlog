@@ -229,12 +229,10 @@ def create_view(item: ViewPost, con: DbConnectionDep):
 
 class RecordingQueryParams(BaseModel):
     program_id: int | None = Query(default=None)
-    from_: Annotated[JSTDatetime | None | Literal[""], Field(default=None)]
-    # TODO: バグでaliasだと常にデフォルトになる
-    # from_: Annotated[JSTDatetime | None | Literal[""], Field(default=None, alias="from")] = None
-    # from_: JSTDatetime | None | Literal[""] = Query(default=None, alias="from")
+    # TODO: バグでaliasが効かない
+    from_: JSTDatetime | None | Literal[""] = Query(default=None, alias="from")
     to: JSTDatetime | None | Literal[""] = Query(default=None)
-    watched: bool | Literal["on"] = Query(default=True)
+    watched: bool | Literal["on"] = Query(default=False)
     deleted: bool | Literal["on"] = Query(default=False)
     file_folder: str = Query(default="")
 

@@ -44,11 +44,8 @@ def programs(request: Request, params: Annotated[api.ProgramQueryParams, Depends
     return templates.TemplateResponse(
         request=request, name="programs.html", context={"programs": programs, "params": params})
 
-class RecordingQueryParams(api.RecordingQueryParams):
-    watched: bool = False
-
 @app.get("/recordings", response_class=HTMLResponse)
-def recordings(request: Request, params: Annotated[RecordingQueryParams, Depends()], con: DbConnectionDep):
+def recordings(request: Request, params: Annotated[api.RecordingQueryParams, Depends()], con: DbConnectionDep):
     recordings = api.get_recordings(params, con)
 
     return templates.TemplateResponse(

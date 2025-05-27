@@ -395,18 +395,19 @@ def test_get_recordings(con, client):
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, 'Text', 'Ext Text', unixepoch('2025-05-12T12:01:00+09:00'))
         ;
         INSERT INTO recordings (id, program_id, file_path, file_size, watched_at, deleted_at, created_at) VALUES
-            (1, 1, '//server/recorded/test1', 1000000000, unixepoch('2025-05-12T13:00:00+09:00'), NULL, unixepoch('2025-05-12T12:30:00+09:00'))
-          , (2, 1, '//server/recorded/test1_2', 1000000001, unixepoch('2025-05-12T13:30:00+09:00'), unixepoch('2025-05-12T14:00:00+09:00'), unixepoch('2025-05-12T12:31:00+09:00'))
+            (1, 1, '//server/recorded/test1', 1000000000, NULL, NULL, unixepoch('2025-05-12T12:30:00+09:00'))
+          , (2, 1, '//server/recorded/test1_2', 1000000001, unixepoch('2025-05-12T13:30:00+09:00'), NULL, unixepoch('2025-05-12T12:31:00+09:00'))
+          , (3, 1, '', NULL, unixepoch('2025-05-12T13:30:00+09:00'), unixepoch('2025-05-12T14:00:00+09:00'), unixepoch('2025-05-12T12:32:00+09:00'))
         ;
     """)
-    response1 = client.get("/api/recordings")    # 既定値は deleted なら除外
+    response1 = client.get("/api/recordings")    # 既定値は watched, deleted を除外
     assert response1.status_code == 200
     assert response1.json() == [{
         "id": 1,
         "file_path": "//server/recorded/test1",
         "file_folder": "recorded",
         "file_size": 1_000_000_000,
-        "watched_at": "2025-05-12T13:00:00+09:00",
+        "watched_at": None,
         "deleted_at": None,
         "created_at": "2025-05-12T12:30:00+09:00",
         "program": {
@@ -423,7 +424,7 @@ def test_get_recordings(con, client):
         }
     }]
 
-def test_get_recordings_program_id(con, client):
+def test_get_recordings_search_program_id(con, client):
     con.executescript("""
         INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'))
@@ -450,7 +451,7 @@ def test_get_recordings_program_id(con, client):
     assert len(recordings2) == 1
     assert recordings2[0]["id"] == 4
 
-def test_get_recordings_from(con, client):
+def test_get_recordings_search_from(con, client):
     con.executescript("""
         INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T00:00:00+09:00'), 1800, unixepoch('2025-05-12T00:01:00+09:00'))
@@ -467,12 +468,12 @@ def test_get_recordings_from(con, client):
     assert len(recordings1) == 1
     assert recordings1[0]["id"] == 2
 
-    response2 = client.get("/api/recordings?from_=2025-05-12")
+    response2 = client.get("/api/recordings?from=2025-05-12")
     assert response2.status_code == 200
     recordings2 = response2.json()
     assert len(recordings2) == 2
 
-def test_get_recordings_to(con, client):
+def test_get_recordings_search_to(con, client):
     con.executescript("""
         INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T00:00:00+09:00'), 1800, unixepoch('2025-05-12T12:31:00+09:00'))
@@ -494,7 +495,7 @@ def test_get_recordings_to(con, client):
     recordings2 = response2.json()
     assert len(recordings2) == 2
 
-def test_get_recordings_watched(con, client):
+def test_get_recordings_search_watched(con, client):
     con.executescript("""
         INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:31:00+09:00'))
@@ -516,7 +517,7 @@ def test_get_recordings_watched(con, client):
     recordings2 = response2.json()
     assert len(recordings2) == 2
 
-def test_get_recordings_deleted(con, client):
+def test_get_recordings_search_deleted(con, client):
     con.executescript("""
         INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:31:00+09:00'))
@@ -538,7 +539,7 @@ def test_get_recordings_deleted(con, client):
     recordings2 = response2.json()
     assert len(recordings2) == 2
 
-def test_get_recordings_file_folder(con, client):
+def test_get_recordings_search_file_folder(con, client):
     con.executescript("""
         INSERT INTO programs (id, event_id, service_id, name, start_time, duration, text, ext_text, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, 'Text', 'Ext Text', unixepoch('2025-05-12T12:01:00+09:00'))

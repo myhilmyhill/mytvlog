@@ -36,6 +36,9 @@
 </table>
 
 <form>
+  <input type="hidden" name="from_" value="{{ request.query_params.from_ }}">
+  <input type="hidden" name="to" value="{{ request.query_params.to }}">
+  <input type="hidden" name="name" value="{{ request.query_params.name }}">
   <input type="hidden" name="page" value="{{ params.page + 1 }}">
   <button type="submit">次</button>
 </form>
