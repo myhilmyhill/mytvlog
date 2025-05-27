@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <script>
+  'use strict'
   function $(q) { return document.querySelector(q) }
   async function patch(json) {
     return (await fetch(`/api/recordings/${$('#id').textContent}`, {

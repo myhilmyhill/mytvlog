@@ -14,7 +14,7 @@ class MarkerPlot extends HTMLElement {
         }
         svg {
           width: 10em;
-          height: 10px;
+          height: 1ex;
           border: 1px solid currentcolor;
           fill: currentcolor;
         }

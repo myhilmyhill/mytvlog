@@ -1,4 +1,4 @@
-'use static'
+'use strict'
 function play(filePath) {
   return fetch('http://player.example.com/play', { method: 'POST', body: filePath })
 }

@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <script>
+  'use strict'
   function $(q) { return document.querySelector(q) }
   function patch(id, body) {
     return fetch(`/api/recordings/${id}`, {
