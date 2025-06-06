@@ -1,5 +1,4 @@
 import pytest
-from ..conftest import con, client, smb
 
 INVALID_FILE_PATHS = [
     "/server/repo/not_double_slash_start",
@@ -13,7 +12,7 @@ INVALID_FILE_PATHS = [
 
 def test_get_program(con, client):
     con.executescript("""
-        INSERT INTO programs (id, event_id, service_id, name, start_time, duration, text, ext_text, created_at) VALUES
+        INSERT INTO programs(id, event_id, service_id, name, start_time, duration, text, ext_text, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, 'Text', 'Ext Text', unixepoch('2025-05-12T12:01:00+09:00'))
         ;
         INSERT INTO views(program_id, viewed_time, created_at) VALUES
@@ -39,7 +38,7 @@ def test_get_program(con, client):
 
 def test_get_programs(con, client):
     con.executescript("""
-        INSERT INTO programs (id, event_id, service_id, name, start_time, duration, text, ext_text, created_at) VALUES
+        INSERT INTO programs(id, event_id, service_id, name, start_time, duration, text, ext_text, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, 'Text', 'Ext Text', unixepoch('2025-05-12T12:01:00+09:00'))
           , (2, 12, 102, 'Test Program 2', unixepoch('2025-05-12T12:30:00+09:00'), 3600, 'Text 2', 'Ext Text 2', unixepoch('2025-05-12T13:31:00+09:00'))
         ;
@@ -115,7 +114,7 @@ def test_get_programs(con, client):
 
 def test_get_programs_from(con, client):
     con.executescript("""
-        INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
+        INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T00:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'))
           , (2, 12, 102, 'Test Program 2', unixepoch('2025-05-13T00:00:00+09:00'), 3600, unixepoch('2025-05-12T13:31:00+09:00'))
         ;
@@ -133,7 +132,7 @@ def test_get_programs_from(con, client):
 
 def test_get_programs_to(con, client):
     con.executescript("""
-        INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
+        INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T00:00:00+09:00'), 1800, unixepoch('2025-05-12T12:31:00+09:00'))
           , (2, 12, 102, 'Test Program 2', unixepoch('2025-05-12T23:31:00+09:00'), 1800, unixepoch('2025-05-13T12:31:00+09:00'))
         ;
@@ -149,9 +148,9 @@ def test_get_programs_to(con, client):
     programs2 = response2.json()
     assert len(programs2) == 2
 
-def test_get_programs_name(con, client):
+def test_get_programs_search_name(con, client):
     con.executescript("""
-        INSERT INTO programs (id, event_id, service_id, name, start_time, duration, text, ext_text, created_at) VALUES
+        INSERT INTO programs(id, event_id, service_id, name, start_time, duration, text, ext_text, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, 'Text', 'Ext Text', unixepoch('2025-05-12T12:01:00+09:00'))
           , (2, 12, 102, 'テスト番組2', unixepoch('2025-05-12T12:30:00+09:00'), 3600, 'Text 2', 'Ext Text 2', unixepoch('2025-05-12T13:31:00+09:00'))
         ;
@@ -168,7 +167,7 @@ def test_get_programs_name(con, client):
     assert len(programs2) == 1
     assert programs2[0]["id"] == 2
 
-def test_get_views_program_id(con, client):
+def test_get_views_search_program_id(con, client):
     con.executescript("""
         INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'))
@@ -195,7 +194,7 @@ def test_get_views_program_id(con, client):
         },
     ]
 
-def test_get_views_pages(con, client):
+def test_get_views_search_pages(con, client):
     con.executescript("""
         INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'))
@@ -263,8 +262,9 @@ def test_create_view(con, client):
 
 def test_create_view_延長でdurationが延びる(con, client):
     con.executescript("""
-        INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
-            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'));
+        INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at) VALUES
+            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'))
+        ;
     """)
     response = client.post("/api/views", json={
         "program": {
@@ -284,8 +284,9 @@ def test_create_view_延長でdurationが延びる(con, client):
 
 def test_create_view_延長でdurationが縮む(con, client):
     con.executescript("""
-        INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
-            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'));
+        INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at) VALUES
+            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'))
+        ;
     """)
     response = client.post("/api/views", json={
         "program": {
@@ -305,8 +306,9 @@ def test_create_view_延長でdurationが縮む(con, client):
 
 def test_create_view_created_atより前のviewed_timeでdurationが変化しても古い値で上書きしない(con, client):
     con.executescript("""
-        INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
-            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'));
+        INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at) VALUES
+            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'))
+        ;
     """)
     response = client.post("/api/views", json={
         "program": {
@@ -333,10 +335,10 @@ def test_create_view_created_atより前のviewed_timeでdurationが変化して
 
 def test_get_recording(con, client):
     con.executescript("""
-        INSERT INTO programs (id, event_id, service_id, name, start_time, duration, text, ext_text, created_at) VALUES
+        INSERT INTO programs(id, event_id, service_id, name, start_time, duration, text, ext_text, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, 'Text', 'Ext Text', unixepoch('2025-05-12T12:01:00+09:00'))
         ;
-        INSERT INTO recordings (id, program_id, file_path, file_size, watched_at, deleted_at, created_at) VALUES
+        INSERT INTO recordings(id, program_id, file_path, file_size, watched_at, deleted_at, created_at) VALUES
             (1, 1, '//server/recorded/test1', 1000000000, unixepoch('2025-05-12T13:00:00+09:00'), NULL, unixepoch('2025-05-12T12:30:00+09:00'))
           , (2, 1, '//server/recorded/test1_2', 1000000001, unixepoch('2025-05-12T13:30:00+09:00'), unixepoch('2025-05-12T14:00:00+09:00'), unixepoch('2025-05-12T12:31:00+09:00'))
         ;
@@ -391,10 +393,10 @@ def test_get_recording(con, client):
 
 def test_get_recordings(con, client):
     con.executescript("""
-        INSERT INTO programs (id, event_id, service_id, name, start_time, duration, text, ext_text, created_at) VALUES
+        INSERT INTO programs(id, event_id, service_id, name, start_time, duration, text, ext_text, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, 'Text', 'Ext Text', unixepoch('2025-05-12T12:01:00+09:00'))
         ;
-        INSERT INTO recordings (id, program_id, file_path, file_size, watched_at, deleted_at, created_at) VALUES
+        INSERT INTO recordings(id, program_id, file_path, file_size, watched_at, deleted_at, created_at) VALUES
             (1, 1, '//server/recorded/test1', 1000000000, NULL, NULL, unixepoch('2025-05-12T12:30:00+09:00'))
           , (2, 1, '//server/recorded/test1_2', 1000000001, unixepoch('2025-05-12T13:30:00+09:00'), NULL, unixepoch('2025-05-12T12:31:00+09:00'))
           , (3, 1, '', NULL, unixepoch('2025-05-12T13:30:00+09:00'), unixepoch('2025-05-12T14:00:00+09:00'), unixepoch('2025-05-12T12:32:00+09:00'))
@@ -426,11 +428,11 @@ def test_get_recordings(con, client):
 
 def test_get_recordings_search_program_id(con, client):
     con.executescript("""
-        INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
+        INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'))
           , (2, 12, 102, 'Test Program 2', unixepoch('2025-05-12T12:30:00+09:00'), 1800, unixepoch('2025-05-12T12:31:00+09:00'))
         ;
-        INSERT INTO recordings (id, program_id, file_path, created_at) VALUES
+        INSERT INTO recordings(id, program_id, file_path, created_at) VALUES
             (1, 1, '//server/recorded/test1', unixepoch('2025-05-12T12:30:00+09:00'))
           , (2, 1, '//server/recorded/test1_2', unixepoch('2025-05-12T12:32:00+09:00'))
           , (3, 1, '//server/recorded/test1_3', unixepoch('2025-05-12T12:31:00+09:00'))
@@ -453,11 +455,11 @@ def test_get_recordings_search_program_id(con, client):
 
 def test_get_recordings_search_from(con, client):
     con.executescript("""
-        INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
+        INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T00:00:00+09:00'), 1800, unixepoch('2025-05-12T00:01:00+09:00'))
           , (2, 12, 102, 'Test Program 2', unixepoch('2025-05-13T00:00:00+09:00'), 1800, unixepoch('2025-05-13T00:01:00+09:00'))
         ;
-        INSERT INTO recordings (id, program_id, file_path, created_at) VALUES
+        INSERT INTO recordings(id, program_id, file_path, created_at) VALUES
             (1, 1, '//server/recorded/test1', unixepoch('2025-05-12T12:30:00+09:00'))
           , (2, 2, '//server/recorded/test2', unixepoch('2025-05-13T12:30:00+09:00'))
         ;
@@ -475,11 +477,11 @@ def test_get_recordings_search_from(con, client):
 
 def test_get_recordings_search_to(con, client):
     con.executescript("""
-        INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
+        INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T00:00:00+09:00'), 1800, unixepoch('2025-05-12T12:31:00+09:00'))
           , (2, 12, 102, 'Test Program 2', unixepoch('2025-05-12T23:31:00+09:00'), 1800, unixepoch('2025-05-13T12:31:00+09:00'))
         ;
-        INSERT INTO recordings (id, program_id, file_path, created_at) VALUES
+        INSERT INTO recordings(id, program_id, file_path, created_at) VALUES
             (1, 1, '//server/recorded/test1', unixepoch('2025-05-12T12:30:00+09:00'))
           , (2, 2, '//server/recorded/test2', unixepoch('2025-05-13T12:30:00+09:00'))
         ;
@@ -497,11 +499,11 @@ def test_get_recordings_search_to(con, client):
 
 def test_get_recordings_search_watched(con, client):
     con.executescript("""
-        INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
+        INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:31:00+09:00'))
           , (2, 12, 102, 'Test Program 2', unixepoch('2025-05-13T12:00:00+09:00'), 1800, unixepoch('2025-05-13T12:31:00+09:00'))
         ;
-        INSERT INTO recordings (id, program_id, file_path, watched_at, deleted_at, created_at) VALUES
+        INSERT INTO recordings(id, program_id, file_path, watched_at, deleted_at, created_at) VALUES
             (1, 1, '//server/recorded/test1', unixepoch('2025-05-12T13:00:00+09:00'), NULL, unixepoch('2025-05-12T12:30:00+09:00'))
           , (2, 2, '//server/recorded/test2', NULL, NULL, unixepoch('2025-05-13T12:30:00+09:00'))
         ;
@@ -519,11 +521,11 @@ def test_get_recordings_search_watched(con, client):
 
 def test_get_recordings_search_deleted(con, client):
     con.executescript("""
-        INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
+        INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:31:00+09:00'))
           , (2, 12, 102, 'Test Program 2', unixepoch('2025-05-13T12:00:00+09:00'), 1800, unixepoch('2025-05-13T12:31:00+09:00'))
         ;
-        INSERT INTO recordings (id, program_id, file_path, watched_at, deleted_at, created_at) VALUES
+        INSERT INTO recordings(id, program_id, file_path, watched_at, deleted_at, created_at) VALUES
             (1, 1, '//server/recorded/test1', NULL, unixepoch('2025-05-12T13:10:00+09:00'), unixepoch('2025-05-12T12:30:00+09:00'))
           , (2, 2, '//server/recorded/test2', NULL, NULL, unixepoch('2025-05-13T12:30:00+09:00'))
         ;
@@ -541,10 +543,10 @@ def test_get_recordings_search_deleted(con, client):
 
 def test_get_recordings_search_file_folder(con, client):
     con.executescript("""
-        INSERT INTO programs (id, event_id, service_id, name, start_time, duration, text, ext_text, created_at) VALUES
-            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, 'Text', 'Ext Text', unixepoch('2025-05-12T12:01:00+09:00'))
+        INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at) VALUES
+            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'))
         ;
-        INSERT INTO recordings (id, program_id, file_path, created_at) VALUES
+        INSERT INTO recordings(id, program_id, file_path, created_at) VALUES
             (1, 1, '//server/recorded1/test1', unixepoch('2025-05-12T12:30:00+09:00'))
           , (2, 1, '//server/recorded2/test1', unixepoch('2025-05-12T12:30:00+09:00'))
         ;
@@ -620,10 +622,10 @@ def test_create_recordings_file_path_指定書式以外は例外(in_file_path, c
 
 def test_patch_recording_set_watched(con, client, smb):
     con.executescript("""
-        INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
+        INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'))
         ;
-        INSERT INTO recordings (id, program_id, file_path, file_size, watched_at, deleted_at, created_at) VALUES
+        INSERT INTO recordings(id, program_id, file_path, file_size, watched_at, deleted_at, created_at) VALUES
             (1, 1, '//server/recorded/test1', 1000000000, NULL, NULL, unixepoch('2025-05-12T12:30:00+09:00'))
         ;
     """)
@@ -645,10 +647,10 @@ def test_patch_recording_set_watched(con, client, smb):
 
 def test_patch_recording_unset_watched(con, client):
     con.executescript("""
-        INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
+        INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'))
         ;
-        INSERT INTO recordings (id, program_id, file_path, file_size, watched_at, deleted_at, created_at) VALUES
+        INSERT INTO recordings(id, program_id, file_path, file_size, watched_at, deleted_at, created_at) VALUES
             (1, 1, '//server/archives/test1', 1000000000, unixepoch('2025-05-12T13:00:00+09:00'), NULL, unixepoch('2025-05-12T12:30:00+09:00'))
         ;
     """)
@@ -667,10 +669,10 @@ def test_patch_recording_unset_watched(con, client):
 
 def test_patch_recording_set_deleted(con, client, smb):
     con.executescript("""
-        INSERT INTO programs (id, event_id, service_id, name, start_time, duration, created_at) VALUES
+        INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'))
         ;
-        INSERT INTO recordings (id, program_id, file_path, file_size, watched_at, deleted_at, created_at) VALUES
+        INSERT INTO recordings(id, program_id, file_path, file_size, watched_at, deleted_at, created_at) VALUES
             (1, 1, '//server/archives/test1', 1000000000, unixepoch('2025-05-12T13:00:00+09:00'), NULL, unixepoch('2025-05-12T12:30:00+09:00'))
         ;
     """)

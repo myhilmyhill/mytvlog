@@ -1,7 +1,7 @@
 from typing import Annotated, Callable
-from fastapi import Depends, BackgroundTasks
+from fastapi import Depends
 from pydantic import AfterValidator
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 from zoneinfo import ZoneInfo
 import os
 import re
@@ -18,11 +18,6 @@ def localize_to_jst(dt: datetime) -> datetime:
 
 JSTDatetime = Annotated[datetime, AfterValidator(localize_to_jst)]
 
-def regexp(pattern, value):
-    if value is None:
-        return False
-    return re.search(pattern, value) is not None
-
 def make_db_connection(db_path, **kwargs):
     con = sqlite3.connect(db_path, detect_types=sqlite3.PARSE_COLNAMES, **kwargs)
     con.row_factory = sqlite3.Row
@@ -38,6 +33,11 @@ def make_db_connection(db_path, **kwargs):
         return datetime.fromtimestamp(int(val)).astimezone(JST)
 
     sqlite3.register_converter("timestamp", convert_timestamp)
+
+    def regexp(pattern, value):
+        if value is None:
+            return False
+        return re.search(pattern, value) is not None
 
     con.create_function("regexp", 2, regexp)
 

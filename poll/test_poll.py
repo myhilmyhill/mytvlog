@@ -1,8 +1,7 @@
 import unittest
 from unittest.mock import patch, MagicMock
-import os
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import poll
 

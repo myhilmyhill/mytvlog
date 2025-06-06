@@ -1,7 +1,5 @@
 import pytest
-import sqlite3
 from fastapi import BackgroundTasks
-from datetime import datetime, timezone, timedelta
 from unittest.mock import Mock
 from fastapi.testclient import TestClient
 from .main import app

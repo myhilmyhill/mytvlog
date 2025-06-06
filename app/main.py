@@ -19,27 +19,24 @@ dst_root = os.environ["dst_root"]
 
 @app.get("/", response_class=HTMLResponse)
 def digestions(request: Request, con: DbConnectionDep):
-    digestions_raw = api.get_digestions(con)
-    digestions = []
-    for d in digestions_raw:
-        d_dict = d.model_dump()
-        d_dict["start_time_timestamp"] = int(d.start_time.timestamp())
-        d_dict["end_time_timestamp"] = int(d.end_time.timestamp())
-        d_dict["viewed_times_timestamp"] = [int(t.timestamp()) for t in d.viewed_times]
-        digestions.append(d_dict)
+    digestions = [{
+        **d.model_dump(),
+        "start_time_timestamp": int(d.start_time.timestamp()),
+        "end_time_timestamp": int(d.end_time.timestamp()),
+        "viewed_times_timestamp": [int(t.timestamp()) for t in d.viewed_times],
+    } for d in api.get_digestions(con)]
+
     return templates.TemplateResponse(
         request=request, name="index.html", context={"digestions": digestions, "dst_root": dst_root})
 
 @app.get("/programs", response_class=HTMLResponse)
 def programs(request: Request, params: Annotated[api.ProgramQueryParams, Depends()], con: DbConnectionDep):
-    programs_raw = api.get_programs(params, con)
-    programs = []
-    for p in programs_raw:
-        p_dict = p.model_dump()
-        p_dict["start_time_timestamp"] = int(p.start_time.timestamp())
-        p_dict["end_time_timestamp"] = int(p.end_time.timestamp())
-        p_dict["viewed_times_timestamp"] = [int(t.timestamp()) for t in p.viewed_times]
-        programs.append(p_dict)
+    programs = [{
+        **p.model_dump(),
+        "start_time_timestamp": int(p.start_time.timestamp()),
+        "end_time_timestamp": int(p.end_time.timestamp()),
+        "viewed_times_timestamp": [int(t.timestamp()) for t in p.viewed_times],
+    } for p in api.get_programs(params, con)]
 
     return templates.TemplateResponse(
         request=request, name="programs.html", context={"programs": programs, "params": params})

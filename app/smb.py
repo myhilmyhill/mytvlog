@@ -1,6 +1,7 @@
+from typing import Tuple
 from pathlib import Path
 from smbclient import register_session, copyfile, makedirs, removedirs, remove, utime, stat, walk, scandir
-from smbprotocol.exceptions import SMBOSError, SMBException, NoSuchFile
+from smbprotocol.exceptions import SMBOSError, NoSuchFile
 from smbprotocol.open import FileAttributes
 
 class SMB:
@@ -71,7 +72,7 @@ class SMB:
 
         removedirs(src_dir)
 
-    def move_files_by_root(self, src_file_or_pattern, dst_root) -> (str, str):
+    def move_files_by_root(self, src_file_or_pattern, dst_root) -> Tuple[str, str]:
         self.reinit()
         if self._is_dir(src_file_or_pattern):    # //server/src_root/to/dir
             self.move_folder_by_root(src_file_or_pattern, dst_root)

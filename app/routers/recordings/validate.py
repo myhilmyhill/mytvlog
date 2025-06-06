@@ -63,8 +63,8 @@ def validate_recordings(body: ValidateRecordings, con: DbConnectionDep, smb: Smb
         ;
     """)
     con.executemany("""
-        INSERT INTO v(recording_id, new_file_path, file_size) VALUES
-        (:recording_id, :found_path, :file_size)
+        INSERT INTO v(recording_id, new_file_path, file_size)
+        VALUES(:recording_id, :found_path, :file_size)
     """, vs)
     con.execute("""
        UPDATE recordings AS r SET

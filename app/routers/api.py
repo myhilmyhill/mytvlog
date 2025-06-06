@@ -2,11 +2,10 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Path, Query, Body, HTTPException, BackgroundTasks, Response, status
 
 from pydantic import BaseModel, Field, computed_field
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 from sqlite3 import Connection
 import json
 import re
-from ..smb import SMB
 from ..dependencies import JSTDatetime, JST, DbConnectionDep, DbConnectionFactoryDep, SmbDep
 from .recordings import import_api, validate
 
@@ -58,7 +57,7 @@ class ProgramGet(ProgramGetBase):
     def viewed_times(self) -> list[datetime]:
         return [datetime.fromtimestamp(t).astimezone(JST) for t in json.loads(self.viewed_times_json or '[]')]
 
-@router.get("/api/programs")
+@router.get("/api/programs", response_model=list[ProgramGet])
 def get_programs(params: Annotated[ProgramQueryParams, Depends()], con: DbConnectionDep):
     cur = con.execute("""
         WITH agg_views AS (
@@ -99,7 +98,7 @@ def get_programs(params: Annotated[ProgramQueryParams, Depends()], con: DbConnec
 
     return [ProgramGet(**row) for row in rows]
 
-@router.get("/api/programs/{id}")
+@router.get("/api/programs/{id}", response_model=ProgramGet)
 def get_program(id: int, con: DbConnectionDep):
     cur = con.cursor()
 
@@ -157,8 +156,8 @@ def get_or_create_program(con: Connection, program: ProgramBase, created_at: dat
         return id
 
     cur.execute("""
-        INSERT INTO programs (event_id, service_id, name, start_time, duration, text, ext_text, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO programs(event_id, service_id, name, start_time, duration, text, ext_text, created_at)
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         program.event_id,
         program.service_id,
@@ -221,8 +220,8 @@ def create_view(item: ViewPost, con: DbConnectionDep):
 
     cursor = con.cursor()
     cursor.execute("""
-        INSERT INTO views (program_id, viewed_time, created_at)
-        VALUES (?, ?, ?)
+        INSERT INTO views(program_id, viewed_time, created_at)
+        VALUES(?, ?, ?)
     """, (program_id, item.viewed_time, datetime.now()))
     con.commit()
     return
@@ -368,8 +367,8 @@ def create_recording(item: Annotated[RecordingPost, Body()], con: DbConnectionDe
     program_id = get_or_create_program(con, item.program, item.created_at, item.created_at)
 
     cur = con.execute("""
-        INSERT INTO recordings (program_id, file_path, file_size, watched_at, deleted_at, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO recordings(program_id, file_path, file_size, watched_at, deleted_at, created_at)
+        VALUES(?, ?, ?, ?, ?, ?)
     """, (
         program_id,
         item.file_path,

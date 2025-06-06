@@ -1,8 +1,8 @@
-from typing import Annotated, Literal
+from typing import Annotated
 from pydantic import BaseModel
 from datetime import datetime
 import asyncio
-from fastapi import APIRouter, Body, Query
+from fastapi import APIRouter, Body
 from ...dependencies import DbConnectionDep, SmbDep, EdcbDep
 
 router = APIRouter()
@@ -52,8 +52,6 @@ def import_recordings_from_edcb(body: Annotated[ImportRecordingFromEdcb, Body()]
     return {"count_edcb_recordings": len(imports), **bulk_import(imports, body.dry_run, con, smb)}
 
 def bulk_import(bulk_imports: list[dict], dry_run: bool, con: DbConnectionDep, smb: SmbDep):
-    count_input = len(bulk_imports)
-
     bulk_imports = [{
         **b,
         "file_size": smb.get_file_size(b["file_path"]),

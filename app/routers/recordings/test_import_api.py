@@ -1,7 +1,5 @@
-import pytest
 from datetime import datetime
 from unittest.mock import AsyncMock
-from ...conftest import con, client, smb, edcb
 
 def test_import_recordings_dry_run(con, client, smb):
     smb.get_file_size.side_effect = lambda path: {
@@ -159,7 +157,7 @@ def test_import_recordings(con, client, smb):
 def test_import_recordings_dry_run_すでに同じprogramsがあればそれを使う(con, client, smb):
     con.executescript("""
         INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at) VALUES
-        (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:31:00+09:00'))
+            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:31:00+09:00'))
         ;
     """)
     smb.get_file_size.side_effect = lambda path: {
@@ -198,8 +196,9 @@ def test_import_recordings_dry_run_すでに同じprogramsがあればそれを�
 
 def test_import_recordings_すでに同じprogramsがあればそれを使う(con, client, smb):
     con.executescript("""
-        INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at)
-        VALUES(1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:31:00+09:00'));
+        INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at) VALUES
+            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:31:00+09:00'))
+        ;
     """)
     smb.get_file_size.side_effect = lambda path: {
         "//recorded/test1": 1_000_000_001,
@@ -237,9 +236,11 @@ def test_import_recordings_すでに同じprogramsがあればそれを使う(co
 def test_import_recordings_dry_run_すでに同じファイルのrecordingがあれば登録しない(con, client, smb):
     con.executescript("""
         INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at) VALUES
-            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:31:00+09:00'));
+            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:31:00+09:00'))
+        ;
         INSERT INTO recordings (id, program_id, file_path, file_size, watched_at, deleted_at, created_at) VALUES
-            (1, 1, '//testserver/recorded/test1', 1000000001, NULL, NULL, unixepoch('2025-05-12T12:30:00+09:00'));
+            (1, 1, '//testserver/recorded/test1', 1000000001, NULL, NULL, unixepoch('2025-05-12T12:30:00+09:00'))
+        ;
     """)
     smb.get_file_size.side_effect = lambda path: {
         "//testserver/recorded/test1": 1_000_000_001,
