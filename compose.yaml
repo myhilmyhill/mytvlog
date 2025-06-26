@@ -3,7 +3,7 @@ services:
     build: .
     init: true
     ports:
-      - 8001:80
+      - 8001:8001
     volumes:
       - ./app:/app/app
       - ./db:/app/db
@@ -11,6 +11,7 @@ services:
     working_dir: /app
     command: docker-entrypoint.sh
     environment:
+      TZ: Asia/Tokyo
       PORT: 8001
     env_file: .env
     restart: unless-stopped
