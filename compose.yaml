@@ -1,6 +1,7 @@
 services:
   mytvlog:
     build: .
+    init: true
     ports:
       - 8001:80
     volumes:
@@ -9,14 +10,40 @@ services:
       - ./docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
     working_dir: /app
     command: docker-entrypoint.sh
+    environment:
+      PORT: 8001
     env_file: .env
     restart: unless-stopped
 
   poll:
     image: python:3.13-slim
+    init: true
     volumes:
       - ./poll:/poll
     working_dir: /poll
     command: python poll.py
     env_file: .env
+    restart: unless-stopped
+
+  mcp:
+    build: mcp
+    init: true
+    ports:
+      - 8002:80
+    develop:
+      # Create a `watch` configuration to update the app
+      # https://docs.docker.com/compose/file-watch/#compose-watch-versus-bind-mounts
+      watch:
+        # Sync the working directory with the `/app` directory in the container
+        - action: sync
+          path: ./mcp
+          target: /app
+          # Exclude the project virtual environment — it could be for a
+          # different platform in the container
+          ignore:
+            - ./mcp/venv/
+
+        # Rebuild the image if dependencies change by checking uv.lock
+        - action: rebuild
+          path: ./mcp/uv.lock
     restart: unless-stopped
