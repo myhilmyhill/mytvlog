@@ -1,7 +1,7 @@
 from typing import Tuple
 from pathlib import Path
 from smbclient import register_session, copyfile, makedirs, removedirs, remove, utime, stat, walk, scandir
-from smbprotocol.exceptions import SMBOSError, NoSuchFile
+from smbprotocol.exceptions import SMBOSError, NoSuchFile, NotFound
 from smbprotocol.open import FileAttributes
 
 class SMB:
@@ -133,6 +133,8 @@ class SMB:
             return st.st_size
         except FileNotFoundError:
             return None
+        except NotFound:
+            return None
         except SMBOSError as e:
             if "STATUS_OBJECT_NAME_NOT_FOUND" in str(e) or "c000003a" in str(e) or "0xc0000034" in str(e):
                 return None
@@ -147,6 +149,8 @@ class SMB:
             st = stat(path)
             return bool(st.st_file_attributes & FileAttributes.FILE_ATTRIBUTE_DIRECTORY)
         except FileNotFoundError:
+            return False
+        except NotFound:
             return False
         except SMBOSError as e:
             if "STATUS_OBJECT_NAME_NOT_FOUND" in str(e) or "c000003a" in str(e) or "0xc0000034" in str(e) or "0xc0000033" in str(e):
