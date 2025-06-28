@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import sys
 import os
 
-def run_job(poll_status_url: str):
+def run_job(poll_status_url: str, mytvlog_port: int):
     with urllib.request.urlopen(poll_status_url, timeout=10) as res_status:
         status = json.loads(res_status.read().decode())
         if status.get("play_status") == "finished":
@@ -22,7 +22,7 @@ def run_job(poll_status_url: str):
             "viewed_time": status["tot"]
         }
         data = json.dumps(body).encode('utf-8')
-        req = urllib.request.Request('http://mytvlog/api/views', data=data, method='POST')
+        req = urllib.request.Request(f'http://mytvlog:{mytvlog_port}/api/views', data=data, method='POST')
         req.add_header('Content-Type', 'application/json')
         with urllib.request.urlopen(req, timeout=10) as res:
             pass
@@ -47,7 +47,7 @@ def main():
         sleep_until_next_interval(interval_minutes=5, delay_seconds=2 * 60)
         print('Polling', flush=True)
         try:
-            run_job(os.environ['poll_status_url'])
+            run_job(os.environ['poll_status_url'], os.environ['PORT'])
         except Exception as e:
             print(f"{type(e).__name__}: {e}", flush=True)
 
