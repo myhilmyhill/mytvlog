@@ -241,11 +241,11 @@ class RecordingBase(BaseModel):
     watched_at: datetime | None
     deleted_at: datetime | None
     created_at: datetime
+    file_size: int | None
 
 class RecordingGet(RecordingBase):
     program: ProgramGetBase
     id: int
-    file_size: int | None
 
     @computed_field
     @property
@@ -372,7 +372,7 @@ def create_recording(item: Annotated[RecordingPost, Body()], con: DbConnectionDe
     """, (
         program_id,
         item.file_path,
-        smb.get_file_size(item.file_path),
+        item.file_size,
         item.watched_at,
         item.deleted_at,
         item.created_at,

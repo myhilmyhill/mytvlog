@@ -562,9 +562,7 @@ def test_get_recordings_search_file_folder(con, client):
     assert len(recordings2) == 1
     assert recordings2[0]["id"] == 2
 
-def test_create_recording(con, client, smb):
-    smb.get_file_size.return_value = 1_000_000_000
-
+def test_create_recording(con, client):
     response = client.post("/api/recordings", json={
         "program": {
             "event_id": 11,
@@ -576,6 +574,7 @@ def test_create_recording(con, client, smb):
             "ext_text": "Ext Text",
         },
         "file_path": "//server/recorded/test1",
+        "file_size": 1_000_000_000,
         "created_at": "2025-05-12T12:30:00+09:00",
     })
     assert response.status_code == 200
@@ -603,8 +602,6 @@ def test_create_recording(con, client, smb):
 
 @pytest.mark.parametrize("in_file_path", INVALID_FILE_PATHS)
 def test_create_recordings_file_path_指定書式以外は例外(in_file_path, con, client, smb):
-    smb.get_file_size.return_value = 1_000_000_000
-
     response = client.post("/api/recordings", json={
         "program": {
             "event_id": 11,
@@ -616,6 +613,7 @@ def test_create_recordings_file_path_指定書式以外は例外(in_file_path, c
             "ext_text": "Ext Text",
         },
         "file_path": in_file_path,
+        "file_size": 1_000_000_000,
         "created_at": "2025-05-12T12:30:00+09:00",
     })
     assert response.status_code == 400
