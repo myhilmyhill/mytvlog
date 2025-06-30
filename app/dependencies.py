@@ -1,22 +1,15 @@
 from typing import Annotated, Callable
 from fastapi import Depends
-from pydantic import AfterValidator
 from datetime import datetime
-from zoneinfo import ZoneInfo
 import os
 import re
 import sqlite3
+
+from .models.api import JST
+from .repositories.interfaces import DigestionRepository, ProgramRepository, RecordingRepository, ViewRepository
+from .repositories.sqlite.api import SQLiteDigestionRepository, SQLiteProgramRepository, SQLiteRecordingRepository, SQLiteViewRepository
 from .smb import SMB
 from .edcb import CtrlCmdUtil
-
-JST = ZoneInfo("Asia/Tokyo")
-
-def localize_to_jst(dt: datetime) -> datetime:
-    if dt.tzinfo is None:
-        return dt.replace(tzinfo=JST)
-    return dt.astimezone(JST)
-
-JSTDatetime = Annotated[datetime, AfterValidator(localize_to_jst)]
 
 def make_db_connection(db_path, **kwargs):
     con = sqlite3.connect(db_path, detect_types=sqlite3.PARSE_COLNAMES, **kwargs)
@@ -53,6 +46,26 @@ def get_db_connection():
         con.close()
 
 DbConnectionDep = Annotated[sqlite3.Connection, Depends(get_db_connection)]
+
+def get_prog_repo(con: DbConnectionDep) -> ProgramRepository:
+    return SQLiteProgramRepository(con)
+
+ProgramRepositoryDep = Annotated[ProgramRepository, Depends(get_prog_repo)]
+
+def get_rec_repo(con: DbConnectionDep) -> RecordingRepository:
+    return SQLiteRecordingRepository(con)
+
+RecordingRepositoryDep = Annotated[RecordingRepository, Depends(get_rec_repo)]
+
+def get_view_repo(con: DbConnectionDep) -> ViewRepository:
+    return SQLiteViewRepository(con)
+
+ViewRepositoryDep = Annotated[ViewRepository, Depends(get_view_repo)]
+
+def get_dig_repo(con: DbConnectionDep) -> DigestionRepository:
+    return SQLiteDigestionRepository(con)
+
+DigestionRepositoryDep = Annotated[DigestionRepository, Depends(get_dig_repo)]
 
 def get_db_connection_factory():
     """BackgroundTasks など別スレッドで接続する用
