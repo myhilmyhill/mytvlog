@@ -250,7 +250,7 @@ class SQLiteRecordingRepository(RecordingRepository):
                 )
             )
 
-    def create(self, recording: RecordingBase, program_id: int) -> None:
+    def create(self, recording: RecordingBase, program_id: int) -> int:
         if not re.fullmatch("//[^/]+/[^/]+/.*", recording.file_path):
             raise InvalidDataError(detail="Invalid file_path; should be '//server/folder/to/file'")
 
@@ -266,6 +266,7 @@ class SQLiteRecordingRepository(RecordingRepository):
             recording.created_at,
         ))
         self.con.commit()
+        return cur.lastrowid
 
     def update_patch(self, id: int, patch: dict, smb, background_tasks, con_factory) -> bool:
         diff = patch.model_dump(exclude_unset=True)

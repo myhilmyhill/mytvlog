@@ -52,8 +52,8 @@ def create_recording(item: Annotated[RecordingPost, Body()], prog_repo: ProgramR
         raise HTTPException(status_code=400, detail="Invalid file_path; should be '//server/folder/to/file'")
 
     program_id = prog_repo.get_or_create(item.program, item.created_at, item.created_at)
-    rec_repo.create(item, program_id)
-    return rec_repo.get_by_id(program_id)
+    id_ = rec_repo.create(item, program_id)
+    return rec_repo.get_by_id(id_)
 
 @router.patch("/api/recordings/{id}")
 def patch_recording(
