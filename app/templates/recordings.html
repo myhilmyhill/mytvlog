@@ -68,7 +68,7 @@
       <td><a href="{{ url_for('get_recording', id=r.id) }}">{{ r.id }}</a>
       <td><a href="{{ url_for('get_program', id=r.program.id) }}">{{ r.program.id }}</a>
       <td>{{ r.program.name }}
-      <td><button onclick="openDialog({{ r.id }})">⋮</button>
+      <td><button onclick="openDialog('{{ r.id }}')">⋮</button>
       <td>{{ 1 if r.watched_at }}
       <td>{{ 1 if r.deleted_at }}
       <td>{{ r.file_folder if r.file_folder }}

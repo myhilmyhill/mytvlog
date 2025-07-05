@@ -5,16 +5,7 @@ import re
 from ...models.api import ProgramBase, ProgramQueryParams, ProgramGetBase, ProgramGet, ViewBase, ViewQueryParams, ViewGet, RecordingBase, RecordingQueryParams, RecordingGet, Digestion
 from ..interfaces import ProgramRepository, ViewRepository, RecordingRepository, DigestionRepository
 from ..exceptions import NotFoundError, InvalidDataError, UnexpectedError
-
-def extract_model_fields(model: type[BaseModel], row: dict, aliases: dict[str, str] = None) -> dict:
-    aliases = aliases or {}
-    result = {}
-    keys = row.keys()
-    for field_name in model.model_fields.keys():
-        source_key = aliases.get(field_name, field_name)
-        if source_key in keys:
-            result[field_name] = row[source_key]
-    return result
+from ..utils import extract_model_fields
 
 class SQLiteProgramRepository(ProgramRepository):
     def __init__(self, con: Connection):

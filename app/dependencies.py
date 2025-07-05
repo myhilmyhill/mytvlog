@@ -8,6 +8,7 @@ import sqlite3
 from .models.api import JST
 from .repositories.interfaces import DigestionRepository, ProgramRepository, RecordingRepository, ViewRepository
 from .repositories.sqlite.api import SQLiteDigestionRepository, SQLiteProgramRepository, SQLiteRecordingRepository, SQLiteViewRepository
+from .repositories.bigquery.api import BigQueryDigestionRepository, BigQueryProgramRepository, BigQueryRecordingRepository, BigQueryViewRepository
 from .smb import SMB
 from .edcb import CtrlCmdUtil
 
@@ -37,6 +38,8 @@ def make_db_connection(db_path, **kwargs):
     return con
 
 DB_PATH = "db/tv.db"
+BIGQUERY_PROJECT_ID = os.environ["bigquery_project_id"]
+BIGQUERY_DATASET_ID = os.environ["bigquery_dataset_id"]
 
 def get_db_connection():
     con = make_db_connection(DB_PATH)
@@ -48,22 +51,34 @@ def get_db_connection():
 DbConnectionDep = Annotated[sqlite3.Connection, Depends(get_db_connection)]
 
 def get_prog_repo(con: DbConnectionDep) -> ProgramRepository:
-    return SQLiteProgramRepository(con)
+    if os.environ["DB"] == "sqlite":
+        return SQLiteProgramRepository(con)
+    elif os.environ["DB"] == "bigquery":
+        return BigQueryProgramRepository(BIGQUERY_PROJECT_ID, BIGQUERY_DATASET_ID)
 
 ProgramRepositoryDep = Annotated[ProgramRepository, Depends(get_prog_repo)]
 
 def get_rec_repo(con: DbConnectionDep) -> RecordingRepository:
-    return SQLiteRecordingRepository(con)
+    if os.environ["DB"] == "sqlite":
+        return SQLiteRecordingRepository(con)
+    elif os.environ["DB"] == "bigquery":
+        return BigQueryRecordingRepository(BIGQUERY_PROJECT_ID, BIGQUERY_DATASET_ID)
 
 RecordingRepositoryDep = Annotated[RecordingRepository, Depends(get_rec_repo)]
 
 def get_view_repo(con: DbConnectionDep) -> ViewRepository:
-    return SQLiteViewRepository(con)
+    if os.environ["DB"] == "sqlite":
+        return SQLiteViewRepository(con)
+    elif os.environ["DB"] == "bigquery":
+        return BigQueryViewRepository(BIGQUERY_PROJECT_ID, BIGQUERY_DATASET_ID)
 
 ViewRepositoryDep = Annotated[ViewRepository, Depends(get_view_repo)]
 
 def get_dig_repo(con: DbConnectionDep) -> DigestionRepository:
-    return SQLiteDigestionRepository(con)
+    if os.environ["DB"] == "sqlite":
+        return SQLiteDigestionRepository(con)
+    elif os.environ["DB"] == "bigquery":
+        return BigQueryDigestionRepository(BIGQUERY_PROJECT_ID, BIGQUERY_DATASET_ID)
 
 DigestionRepositoryDep = Annotated[DigestionRepository, Depends(get_dig_repo)]
 

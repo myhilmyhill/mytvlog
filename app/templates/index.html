@@ -60,7 +60,7 @@
         data="{{ d.viewed_times_timestamp }}"
         width="{{ 5 * 60 * 2 }}">
       </marker-plot>
-      <td><button onclick='openDialog({{ d.id }})'>⋮</button>
+      <td><button onclick="openDialog('{{ d.id }}')">⋮</button>
       <td>{{ d.duration // 60 }}
       <td>{{ d.name }}
       <td>{{ d.start_time.strftime("%Y/%m/%d(%a) %H:%M") }}

@@ -16,7 +16,7 @@ def get_programs(params: Annotated[ProgramQueryParams, Depends()], repo: Program
     return repo.search(params)
 
 @router.get("/api/programs/{id}", response_model=ProgramGet)
-def get_program(id: int, repo: ProgramRepositoryDep):
+def get_program(id: int | str, repo: ProgramRepositoryDep):
     program = repo.get_by_id(id)
     if program is None:
         raise HTTPException(status_code=404)
@@ -43,7 +43,7 @@ def get_recordings(params: Annotated[RecordingQueryParams, Depends()], rec_repo:
     return rec_repo.search(params)
 
 @router.get("/api/recordings/{id}", response_model=RecordingGet)
-def get_recording(id: int, rec_repo: RecordingRepositoryDep):
+def get_recording(id: int | str, rec_repo: RecordingRepositoryDep):
     return rec_repo.get_by_id(id)
 
 @router.post("/api/recordings", response_model=RecordingGet)
@@ -57,7 +57,7 @@ def create_recording(item: Annotated[RecordingPost, Body()], prog_repo: ProgramR
 
 @router.patch("/api/recordings/{id}")
 def patch_recording(
-        item: Annotated[RecordingPatch, Body()], id: Annotated[int, Path()],
+        item: Annotated[RecordingPatch, Body()], id: Annotated[int | str, Path()],
         response: Response,
         con_factory: DbConnectionFactoryDep, smb: SmbDep, background_tasks: BackgroundTasks,
         rec_repo: RecordingRepositoryDep):

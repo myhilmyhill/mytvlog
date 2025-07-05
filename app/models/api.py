@@ -32,7 +32,7 @@ class ProgramBase(BaseModel):
     created_at: datetime | None = None
 
 class ProgramGetBase(ProgramBase):
-    id: int
+    id: int | str
     created_at: datetime
 
     @computed_field
@@ -46,10 +46,20 @@ class ProgramGet(ProgramGetBase):
     @computed_field
     @property
     def viewed_times(self) -> list[datetime]:
-        return [datetime.fromtimestamp(t).astimezone(JST) for t in json.loads(self.viewed_times_json or '[]')]
+        times = json.loads(self.viewed_times_json or '[]')
+        result = []
+        for t in times:
+            if isinstance(t, int):
+                dt = datetime.fromtimestamp(t).astimezone(JST)
+            elif isinstance(t, str):
+                dt = datetime.fromisoformat(t).astimezone(JST)
+            else:
+                continue
+            result.append(dt)
+        return result
 
 class ViewQueryParams(BaseModel):
-    program_id: int | None = Query(default=None)
+    program_id: int | str | None = Query(default=None)
     page: int | None = Query(default=1, gt=0, title="program_id 指定時は無視されて全件取得します")
     size: int | None = Query(default=500, gt=0, title="program_id 指定時は無視されて全件取得します")
 
@@ -58,14 +68,14 @@ class ViewBase(BaseModel):
     created_at: datetime
 
 class ViewGet(ViewBase):
-    program_id: int
+    program_id: int | str
 
 class ViewPost(ViewBase):
     program: ProgramBase
     created_at: datetime = datetime.now()
 
 class RecordingQueryParams(BaseModel):
-    program_id: int | None = Query(default=None)
+    program_id: int | str | None = Query(default=None)
     # TODO: バグでaliasが効かない
     from_: JSTDatetime | None | Literal[""] = Query(default=None, alias="from")
     to: JSTDatetime | None | Literal[""] = Query(default=None)
@@ -83,7 +93,7 @@ class RecordingBase(BaseModel):
 
 class RecordingGet(RecordingBase):
     program: ProgramGetBase
-    id: int
+    id: int | str
 
     @computed_field
     @property
@@ -93,6 +103,7 @@ class RecordingGet(RecordingBase):
 
 class RecordingPost(RecordingBase):
     file_folder: str | None = None
+    file_size: int | None = None
     watched_at: datetime | None = None
     deleted_at: datetime | None = None
     created_at: datetime = datetime.now()
@@ -111,7 +122,7 @@ class RecordingPatch(BaseModel):
     )
 
 class Digestion(BaseModel):
-    id: int
+    id: int | str
     name: str
     service_id: int
     start_time: datetime
@@ -126,4 +137,14 @@ class Digestion(BaseModel):
     @computed_field
     @property
     def viewed_times(self) -> list[datetime]:
-        return [datetime.fromtimestamp(t).astimezone(JST) for t in json.loads(self.viewed_times_json or '[]')]
+        times = json.loads(self.viewed_times_json or '[]')
+        result = []
+        for t in times:
+            if isinstance(t, int):
+                dt = datetime.fromtimestamp(t).astimezone(JST)
+            elif isinstance(t, str):
+                dt = datetime.fromisoformat(t).astimezone(JST)
+            else:
+                continue
+            result.append(dt)
+        return result
