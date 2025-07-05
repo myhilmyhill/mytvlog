@@ -6,9 +6,11 @@ from starlette.templating import Jinja2Templates
 
 import os
 from .dependencies import DigestionRepositoryDep, ProgramRepositoryDep, RecordingRepositoryDep, ViewRepositoryDep
+from .middlewares.firebase_auth import FirebaseAuthMiddleware
 from .routers import api
 
 app = FastAPI()
+app.add_middleware(FirebaseAuthMiddleware)
 app.include_router(api.router)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
