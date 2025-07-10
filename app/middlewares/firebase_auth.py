@@ -5,7 +5,7 @@ import firebase_admin
 from firebase_admin import credentials, auth
 
 if not firebase_admin._apps:
-    cred = credentials.Certificate("/etc/serviceAccountKey.json")
+    cred = credentials.Certificate("/etc/firebase/serviceAccountKey.json")
     firebase_admin.initialize_app(cred)
 
 class FirebaseAuthMiddleware(BaseHTTPMiddleware):
