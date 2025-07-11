@@ -18,6 +18,14 @@ templates = Jinja2Templates(directory="app/templates")
 dst_root = os.environ["dst_root"]
 
 @app.get("/", response_class=HTMLResponse)
+def auth(request: Request):
+    return templates.TemplateResponse(
+        request=request, name="auth.html", context={
+            "api_key": os.environ["IDENTITY_PLATFORM_API_KEY"],
+            "auth_domain": os.environ["IDENTITY_PLATFORM_AUTH_DOMAIN"],
+        })
+
+@app.get("/digestions", response_class=HTMLResponse)
 def digestions(request: Request, dig_repo: DigestionRepositoryDep):
     digestions = [{
         **d.model_dump(),
@@ -27,7 +35,7 @@ def digestions(request: Request, dig_repo: DigestionRepositoryDep):
     } for d in api.get_digestions(dig_repo)]
 
     return templates.TemplateResponse(
-        request=request, name="index.html", context={"digestions": digestions, "dst_root": dst_root})
+        request=request, name="digestions.html", context={"digestions": digestions, "dst_root": dst_root})
 
 @app.get("/programs", response_class=HTMLResponse)
 def programs(request: Request,

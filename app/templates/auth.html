@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<meta charset="UTF-8">
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.2/firebase-app.js"
+  import { getAuth, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.5.2/firebase-auth.js"
+
+  const firebaseConfig = {
+    apiKey: "{{ api_key }}",
+    authDomain: "{{ auth_domain }}",
+  }
+  const app = initializeApp(firebaseConfig)
+  const auth = getAuth(app)
+  const provider = new GoogleAuthProvider()
+  const result = await signInWithPopup(auth, provider)
+  const idToken = await result.user.getIdToken()
+
+  const response = await fetch('/digestions', {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${idToken}`,
+      'Content-Type': 'application/json'
+    },
+  })
+    .then(response => {
+      if (!response.ok) throw new Error("Fetch failed");
+      return response.text();
+    })
+    .then(html => {
+      document.open();
+      document.write(html);
+      document.close();
+    })
+</script>
