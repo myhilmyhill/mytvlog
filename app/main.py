@@ -23,6 +23,9 @@ def auth(request: Request):
         request=request, name="auth.html", context={
             "api_key": os.environ["IDENTITY_PLATFORM_API_KEY"],
             "auth_domain": os.environ["IDENTITY_PLATFORM_AUTH_DOMAIN"],
+        },
+        headers={
+            "Cache-Control": "public, max-age=2592000"
         })
 
 @app.get("/digestions", response_class=HTMLResponse)
