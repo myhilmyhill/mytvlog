@@ -2,11 +2,10 @@ from fastapi import Request
 from starlette.responses import HTMLResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 import firebase_admin
-from firebase_admin import credentials, auth
+from firebase_admin import auth
 
 if not firebase_admin._apps:
-    cred = credentials.Certificate("/etc/firebase/serviceAccountKey.json")
-    firebase_admin.initialize_app(cred)
+    firebase_admin.initialize_app()
 
 class FirebaseAuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
