@@ -1,5 +1,6 @@
 from typing import Annotated
 from fastapi import FastAPI, Request, Depends
+from fastapi.middleware.gzip import GZipMiddleware
 from starlette.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
@@ -10,6 +11,7 @@ from .middlewares.firebase_auth import FirebaseAuthMiddleware
 from .routers import api, auth
 
 app = FastAPI()
+app.add_middleware(GZipMiddleware, minimum_size=500)
 app.add_middleware(FirebaseAuthMiddleware)
 app.include_router(api.router)
 app.include_router(auth.router)
