@@ -13,24 +13,10 @@
   const provider = new GoogleAuthProvider()
   const result = await signInWithPopup(auth, provider)
   const idToken = await result.user.getIdToken()
-
-  const response = await fetch(`/auth/login?id_token=${idToken}`, {
-    method: 'POST',
+  const response = await fetch("/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id_token: idToken }),
   })
-  // const response = await fetch('/digestions', {
-  //   method: 'GET',
-  //   headers: {
-  //     'Authorization': `Bearer ${idToken}`,
-  //     'Content-Type': 'application/json'
-  //   },
-  // })
-  //   .then(response => {
-  //     if (!response.ok) throw new Error("Fetch failed");
-  //     return response.text();
-  //   })
-  //   .then(html => {
-  //     document.open();
-  //     document.write(html);
-  //     document.close();
-  //   })
+  document.body.textContent = response.ok
 </script>
