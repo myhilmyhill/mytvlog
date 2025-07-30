@@ -2,12 +2,20 @@ from fastapi import Request
 from starlette.responses import HTMLResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 import firebase_admin
-from firebase_admin import auth
+from firebase_admin import credentials, auth
+import os
+import traceback
 
 SESSION_COOKIE_NAME = "session"
+SERVICE_ACCOUNT_KEY_PATH = "/etc/gcp/serviceAccountKey.json"
+VERBOSE = os.getenv("VERBOSE", "").lower() == "true"
 
 if not firebase_admin._apps:
-    firebase_admin.initialize_app()
+    if os.path.exists(SERVICE_ACCOUNT_KEY_PATH):
+        cred = credentials.Certificate(SERVICE_ACCOUNT_KEY_PATH)
+        firebase_admin.initialize_app(cred)
+    else:
+        firebase_admin.initialize_app()
 
 class FirebaseAuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -25,7 +33,10 @@ class FirebaseAuthMiddleware(BaseHTTPMiddleware):
                 request.state.user = decoded
                 return await call_next(request)
             except Exception as e:
-                print("⚠️ セッションCookie無効:", e)
+                if VERBOSE:
+                    traceback.print_exc()
+                else:
+                    print(f"{e.__class__.__name__}: {e}")
 
         # ✅ 2. Authorizationヘッダー (Bearer) で認証
         auth_header = request.headers.get("Authorization")
@@ -36,6 +47,9 @@ class FirebaseAuthMiddleware(BaseHTTPMiddleware):
                 request.state.user = decoded
                 return await call_next(request)
             except Exception as e:
-                print("🔥 Firebase認証失敗:", e)
+                if VERBOSE:
+                    traceback.print_exc()
+                else:
+                    print(f"{e.__class__.__name__}: {e}")
 
         return HTMLResponse(status_code=404)

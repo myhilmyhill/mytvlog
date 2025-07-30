@@ -1,7 +1,8 @@
 *.env
-db/tv.db
+db/tv*.db
 app/static/user-scripts.js
 credentials.json
+serviceAccountKey.json
 
 # Python-generated files
 __pycache__/
