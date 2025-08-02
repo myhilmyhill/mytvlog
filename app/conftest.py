@@ -5,7 +5,10 @@ from fastapi.testclient import TestClient
 from .main import app
 from .smb import SMB
 from .edcb import CtrlCmdUtil
-from .dependencies import make_db_connection, get_db_connection, get_db_connection_factory, get_smb, get_edcb
+from .dependencies import make_db_connection, get_db_connection, get_db_connection_factory, get_smb, get_edcb, get_prog_repo, get_rec_repo, get_view_repo, get_dig_repo
+from .repositories.sqlite.api import (
+    SQLiteProgramRepository, SQLiteRecordingRepository, SQLiteViewRepository, SQLiteDigestionRepository
+)
 
 @pytest.fixture
 def con():
@@ -58,6 +61,14 @@ def client(con, con_factory, smb, edcb):
     app.dependency_overrides[get_db_connection_factory] = override_get_db_connection_factory
     app.dependency_overrides[get_smb] = override_get_smb
     app.dependency_overrides[get_edcb] = override_get_edcb
+    app.dependency_overrides[get_prog_repo] = lambda: SQLiteProgramRepository(con)
+    app.dependency_overrides[get_rec_repo] = lambda: SQLiteRecordingRepository(con)
+    app.dependency_overrides[get_view_repo] = lambda: SQLiteViewRepository(con)
+    app.dependency_overrides[get_dig_repo] = lambda: SQLiteDigestionRepository(con)
+
+    # middleware はテストではすべて読み込まない
+    app.user_middleware.clear()
+    app.middleware_stack = app.build_middleware_stack()
 
     # テストでは即座に実行する
     BackgroundTasks.add_task = lambda self, func, *args, **kwargs: func(*args, **kwargs)

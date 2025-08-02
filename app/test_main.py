@@ -11,7 +11,7 @@ def test_digestions(con, client):
             (1, unixepoch('2025-05-12T12:05:00+09:00'), unixepoch('2025-05-12T13:00:00+09:00'))
         ;
     """)
-    response = client.get("/")
+    response = client.get("/digestions")
     assert response.status_code == 200
 
 def test_recordings(con, client):

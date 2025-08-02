@@ -1,0 +1,17 @@
+services:
+  mytvlog-dev:
+    build: .
+    init: true
+    ports:
+      - 8002:8001
+    volumes:
+      - .:/app
+      - ./docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
+      - ./db/tv.dev.db:/app/db/tv.db
+      - ./serviceAccountKey.json:/etc/gcp/serviceAccountKey.json
+    working_dir: /app
+    environment:
+      TZ: Asia/Tokyo
+      PORT: 8001
+    env_file: .dev.env
+    restart: no

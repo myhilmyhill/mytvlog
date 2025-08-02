@@ -18,10 +18,10 @@ app.include_router(auth.router)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
-dst_root = os.environ["dst_root"]
+dst_root = os.getenv("dst_root")
 
 @app.get("/", response_class=HTMLResponse)
-def auth(request: Request):
+def show_auth_page(request: Request):
     return templates.TemplateResponse(
         request=request, name="auth.html", context={
             "api_key": os.environ["IDENTITY_PLATFORM_API_KEY"],

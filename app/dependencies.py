@@ -38,8 +38,8 @@ def make_db_connection(db_path, **kwargs):
     return con
 
 DB_PATH = "db/tv.db"
-BIGQUERY_PROJECT_ID = os.environ["bigquery_project_id"]
-BIGQUERY_DATASET_ID = os.environ["bigquery_dataset_id"]
+BIGQUERY_PROJECT_ID = os.getenv("bigquery_project_id")
+BIGQUERY_DATASET_ID = os.getenv("bigquery_dataset_id")
 
 def get_db_connection():
     con = make_db_connection(DB_PATH)
