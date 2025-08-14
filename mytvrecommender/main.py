@@ -14,7 +14,7 @@ EDCB_SERVER = os.environ["EDCB_SERVER"]
 EDCB_PORT = os.getenv("EDCB_PORT", "4510")
 
 FIREBASE_API_KEY = os.environ["FIREBASE_API_KEY"]
-FIREBASE_UID = "poll"
+FIREBASE_UID = "mytvrecommender"
 SERVICE_ACCOUNT_PATH = os.getenv("SERVICE_ACCOUNT_PATH", "/etc/gcp/serviceAccountKey.json")
 PORT = os.environ['PORT']
 REMOTE_URL = os.environ['REMOTE_URL']
