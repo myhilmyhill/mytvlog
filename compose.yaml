@@ -5,7 +5,7 @@ services:
     ports:
       - 8001:8001
     volumes:
-      - ./db:/app/db
+      - ./db/tv.db:/app/db/tv.db
       - ./serviceAccountKey.json:/etc/gcp/serviceAccountKey.json
     working_dir: /app
     environment:
@@ -19,7 +19,34 @@ services:
     init: true
     volumes:
       - ./poll:/poll
+      - ./serviceAccountKey.json:/etc/gcp/serviceAccountKey.json
     working_dir: /poll
     command: python poll.py
     env_file: .env
+    restart: unless-stopped
+
+  mytvrecommender:
+    build: ./mytvrecommender
+    init: true
+    ports:
+      - 3001:3001
+    env_file: .env
+    volumes:
+      - ./serviceAccountKey.json:/etc/gcp/serviceAccountKey.json
+    develop:
+      # Create a `watch` configuration to update the app
+      # https://docs.docker.com/compose/file-watch/#compose-watch-versus-bind-mounts
+      watch:
+        # Sync the working directory with the `/app` directory in the container
+        - action: sync
+          path: ./mytvrecommender
+          target: /app
+          # Exclude the project virtual environment — it could be for a
+          # different platform in the container
+          ignore:
+            - ./mytvrecommender/venv/
+
+        # Rebuild the image if dependencies change by checking uv.lock
+        - action: rebuild
+          path: ./mytvrecommender/uv.lock
     restart: unless-stopped

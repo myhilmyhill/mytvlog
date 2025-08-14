@@ -1,0 +1,10 @@
+[project]
+name = "mytvrecommender"
+version = "0.1.0"
+description = "テレビ番組の視聴履歴と放送予定の番組"
+requires-python = ">=3.13"
+dependencies = [
+    "fastmcp==2.11.3",
+    "firebase-admin>=7.1.0",
+    "httpx>=0.28.1",
+]

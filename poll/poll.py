@@ -7,7 +7,7 @@ from firebase_admin import credentials, auth
 
 FIREBASE_API_KEY = os.environ.get("FIREBASE_API_KEY")
 FIREBASE_UID = "poll"
-SERVICE_ACCOUNT_PATH = os.environ.get("SERVICE_ACCOUNT_PATH", "serviceAccountKey.json")
+SERVICE_ACCOUNT_PATH = os.environ.get("SERVICE_ACCOUNT_PATH", "/etc/gcp/serviceAccountKey.json")
 PORT = os.environ['PORT']
 REMOTE_URL = os.environ['REMOTE_URL']
 
