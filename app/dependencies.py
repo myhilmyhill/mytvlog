@@ -50,36 +50,37 @@ def get_db_connection():
 
 DbConnectionDep = Annotated[sqlite3.Connection, Depends(get_db_connection)]
 
-def get_prog_repo(con: DbConnectionDep) -> ProgramRepository:
-    if os.environ["DB"] == "sqlite":
-        return SQLiteProgramRepository(con)
-    elif os.environ["DB"] == "bigquery":
-        return BigQueryProgramRepository(BIGQUERY_PROJECT_ID, BIGQUERY_DATASET_ID)
+def _repo_getter_factory(sqlite_cls, bq_cls):
+    def _getter():
+        db = os.getenv("DB")
+        if db == "sqlite":
+            con = make_db_connection(DB_PATH)
+            try:
+                yield sqlite_cls(con)
+            finally:
+                con.close()
+        elif db == "bigquery":
+            yield bq_cls(BIGQUERY_PROJECT_ID, BIGQUERY_DATASET_ID)
+        else:
+            raise RuntimeError(f"Unsupported DB type: {db}")
 
+    return _getter
+
+
+# Program repository dependency
+get_prog_repo = _repo_getter_factory(SQLiteProgramRepository, BigQueryProgramRepository)
 ProgramRepositoryDep = Annotated[ProgramRepository, Depends(get_prog_repo)]
 
-def get_rec_repo(con: DbConnectionDep) -> RecordingRepository:
-    if os.environ["DB"] == "sqlite":
-        return SQLiteRecordingRepository(con)
-    elif os.environ["DB"] == "bigquery":
-        return BigQueryRecordingRepository(BIGQUERY_PROJECT_ID, BIGQUERY_DATASET_ID)
-
+# Recording repository dependency
+get_rec_repo = _repo_getter_factory(SQLiteRecordingRepository, BigQueryRecordingRepository)
 RecordingRepositoryDep = Annotated[RecordingRepository, Depends(get_rec_repo)]
 
-def get_view_repo(con: DbConnectionDep) -> ViewRepository:
-    if os.environ["DB"] == "sqlite":
-        return SQLiteViewRepository(con)
-    elif os.environ["DB"] == "bigquery":
-        return BigQueryViewRepository(BIGQUERY_PROJECT_ID, BIGQUERY_DATASET_ID)
-
+# View repository dependency
+get_view_repo = _repo_getter_factory(SQLiteViewRepository, BigQueryViewRepository)
 ViewRepositoryDep = Annotated[ViewRepository, Depends(get_view_repo)]
 
-def get_dig_repo(con: DbConnectionDep) -> DigestionRepository:
-    if os.environ["DB"] == "sqlite":
-        return SQLiteDigestionRepository(con)
-    elif os.environ["DB"] == "bigquery":
-        return BigQueryDigestionRepository(BIGQUERY_PROJECT_ID, BIGQUERY_DATASET_ID)
-
+# Digestion repository dependency
+get_dig_repo = _repo_getter_factory(SQLiteDigestionRepository, BigQueryDigestionRepository)
 DigestionRepositoryDep = Annotated[DigestionRepository, Depends(get_dig_repo)]
 
 def get_db_connection_factory():

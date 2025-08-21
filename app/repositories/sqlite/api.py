@@ -338,6 +338,7 @@ class SQLiteDigestionRepository(DigestionRepository):
                 SELECT
                     program_id
                 , json_group_array(viewed_time) AS viewed_times_json
+                , COUNT(viewed_time) * 5 * 60 AS viewed_seconds
                 FROM views
                 GROUP BY program_id
             )
@@ -356,6 +357,7 @@ class SQLiteDigestionRepository(DigestionRepository):
                     FROM recordings
                     WHERE program_id = programs.id AND watched_at IS NULL AND deleted_at IS NULL
                     )
+              AND COALESCE(agg_views.viewed_seconds, 0) < programs.duration * 0.8
             ORDER BY programs.start_time
         """)
         rows = cur.fetchall()

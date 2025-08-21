@@ -328,7 +328,8 @@ class BigQueryDigestionRepository(BigQueryBaseRepository, DigestionRepository):
             WITH agg_views AS (
                 SELECT
                     program_id,
-                    TO_JSON_STRING(ARRAY_AGG(viewed_time)) AS viewed_times_json
+                    TO_JSON_STRING(ARRAY_AGG(viewed_time)) AS viewed_times_json,
+                    COUNT(viewed_time) * 5 * 60 AS viewed_seconds
                 FROM views
                 GROUP BY program_id
             )
@@ -344,6 +345,7 @@ class BigQueryDigestionRepository(BigQueryBaseRepository, DigestionRepository):
             WHERE EXISTS (
                 SELECT 1 FROM recordings r WHERE r.program_id = p.id AND r.watched_at IS NULL AND r.deleted_at IS NULL
             )
+              AND COALESCE(agg.viewed_seconds, 0) < p.duration * 0.8
             ORDER BY p.start_time
             """, job_config=self._make_query_job_config()).result()
         return [Digestion(**dict(row)) for row in rows]
