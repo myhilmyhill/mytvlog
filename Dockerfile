@@ -5,7 +5,8 @@ FROM python:3.13-slim AS base
 
 RUN pip install \
     fastapi jinja2 uvicorn smbprotocol pytest httpx \
-    google-cloud-bigquery firebase-admin
+    google-cloud-bigquery firebase-admin \
+    rapidfuzz
 
 COPY ./app /app/app
 COPY ./db/schema.sql /app/db/schema.sql
@@ -16,7 +17,6 @@ WORKDIR /app
 
 # ######## devステージ（compose用） ########
 FROM base AS dev
-ENTRYPOINT ["bash", "docker-entrypoint.sh"]
 
 # ######## Cloud Run用（デフォルトステージ） ########
 FROM python:3.13-slim AS final

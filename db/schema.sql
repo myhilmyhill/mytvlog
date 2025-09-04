@@ -31,3 +31,19 @@ CREATE TABLE IF NOT EXISTS "views"(
   , FOREIGN KEY (program_id) REFERENCES programs(id)
 ) STRICT
 ;
+-- 連続番組
+CREATE TABLE IF NOT EXISTS "series"(
+    id INTEGER PRIMARY KEY
+  , name TEXT NOT NULL
+  , created_at INTEGER NOT NULL
+) STRICT
+;
+-- 番組とシリーズの多対多リレーション
+CREATE TABLE IF NOT EXISTS "program_series"(
+    program_id INTEGER NOT NULL
+  , series_id  INTEGER NOT NULL
+  , PRIMARY KEY (program_id, series_id)
+  , FOREIGN KEY (program_id) REFERENCES programs(id)
+  , FOREIGN KEY (series_id)  REFERENCES series(id)
+) STRICT
+;

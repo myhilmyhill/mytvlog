@@ -2,8 +2,11 @@
 <html lang="ja">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="data:image/bmp;base64,Qk1aAAAAAAAAAD4AAAAoAAAABwAAAAcAAAABAAEAAAAAABwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///wAAAAAAKAAAABwAAABwAAAAWAAAAGAAAAAAAAAA">
+<script>
+  const TVREMOCON_API_URL = '{{ config.get("TVREMOCON_API_URL", "/play") }}'
+  function play(filePath) { return fetch(TVREMOCON_API_URL, { method: 'POST', body: filePath }) }
+</script>
 <script src="{{ url_for('static', path='marker-plot.js') }}"></script>
-<script src="{{ url_for('static', path='user-scripts.js') }}"></script>
 <a href="/digestions">Digestions</a>
 <a href="/programs">Programs</a>
 <a href="/recordings">Recordings</a>

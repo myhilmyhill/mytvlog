@@ -1,6 +1,8 @@
 services:
   mytvlog:
-    build: .
+    build:
+      context: .
+      target: dev
     init: true
     ports:
       - 8001:8001

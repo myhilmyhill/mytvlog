@@ -17,6 +17,9 @@ app.include_router(api.router)
 app.include_router(auth.router)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
+templates.env.globals["config"] = {
+    "TVREMOCON_API_URL": os.getenv("TVREMOCON_API_URL", "/play")
+}
 
 dst_root = os.getenv("dst_root")
 
