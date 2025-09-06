@@ -746,3 +746,115 @@ def test_patch_recordings_change_file_path_指定書式以外は例外(in_file_p
         "file_path": in_file_path,
     })
     assert response.status_code == 400
+
+
+def test_get_series(con, client):
+    con.executescript("""
+        INSERT INTO series(id, name, created_at) VALUES
+            (1, 'series1', unixepoch('2025-09-02T00:00:00+09:00'))
+          , (2, 'series2', unixepoch('2025-09-03T00:00:00+09:00'))
+        ;
+    """)
+    response = client.get("/api/series")
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "id": 2,
+            "name": "series2",
+            "created_at": "2025-09-03T00:00:00+09:00",
+        },
+        {
+            "id": 1,
+            "name": "series1",
+            "created_at": "2025-09-02T00:00:00+09:00",
+        },
+    ]
+
+def test_get_series_search_name(con, client):
+    con.executescript("""
+        INSERT INTO series(id, name, created_at) VALUES
+            (1, 'series1', unixepoch('2025-09-02T00:00:00+09:00'))
+          , (2, 'series2', unixepoch('2025-09-03T00:00:00+09:00'))
+        ;
+    """)
+    response1 = client.get("/api/series?name=series1")
+    assert response1.status_code == 200
+    assert response1.json() == [
+        {
+            "id": 1,
+            "name": "series1",
+            "created_at": "2025-09-02T00:00:00+09:00",
+        },
+    ]
+
+    response2 = client.get("/api/series?name=series3")
+    assert response2.status_code == 200
+    assert response2.json() == []
+
+def test_create_series(con, client):
+    response = client.post("/api/series", json={
+        "name": "series1",
+        "created_at": "2025-09-02T00:00:00+09:00",
+    })
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": 1,
+        "name": "series1",
+        "created_at": "2025-09-02T00:00:00+09:00",
+    }
+
+def test_get_series_by_id(con, client):
+    con.executescript("""
+        INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at) VALUES
+            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'))
+        ;
+        INSERT INTO views(program_id, viewed_time, created_at) VALUES
+            (1, unixepoch('2025-05-12T12:05:00+09:00'), unixepoch('2025-05-12T13:05:00+09:00'))
+          , (1, unixepoch('2025-05-12T12:10:00+09:00'), unixepoch('2025-05-12T13:10:00+09:00'))
+        ;
+        INSERT INTO series(id, name, created_at) VALUES
+            (1, 'series1', unixepoch('2025-09-02T00:00:00+09:00'))
+        ;
+        INSERT INTO program_series(program_id, series_id) VALUES
+            (1, 1)
+        ;
+    """)
+    response = client.get("/api/series/1")
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": 1,
+        "name": "series1",
+        "created_at": "2025-09-02T00:00:00+09:00",
+        "programs": [
+            {
+                "id": 1,
+                "event_id": 11,
+                "service_id": 101,
+                "name": "Test Program",
+                "start_time": "2025-05-12T12:00:00+09:00",
+                "duration": 1800,
+                "end_time": "2025-05-12T12:30:00+09:00",
+                "text": None,
+                "ext_text": None,
+                "created_at": "2025-05-12T12:01:00+09:00",
+                "viewed_times": [
+                    "2025-05-12T12:05:00+09:00",
+                    "2025-05-12T12:10:00+09:00",
+                ],
+            }
+        ],
+    }
+
+def test_add_program_to_series(con, client):
+    con.executescript("""
+        INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at) VALUES
+            (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'))
+        ;
+        INSERT INTO series(id, name, created_at) VALUES
+            (1, 'series1', unixepoch('2025-09-02T00:00:00+09:00'))
+        ;
+    """)
+    response = client.post("/api/series/1/programs", json={
+        "program_id": 1,
+    })
+    assert response.status_code == 200

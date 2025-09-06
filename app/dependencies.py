@@ -6,9 +6,9 @@ import re
 import sqlite3
 
 from .models.api import JST
-from .repositories.interfaces import DigestionRepository, ProgramRepository, RecordingRepository, ViewRepository
-from .repositories.sqlite.api import SQLiteDigestionRepository, SQLiteProgramRepository, SQLiteRecordingRepository, SQLiteViewRepository
-from .repositories.bigquery.api import BigQueryDigestionRepository, BigQueryProgramRepository, BigQueryRecordingRepository, BigQueryViewRepository
+from .repositories.interfaces import DigestionRepository, ProgramRepository, RecordingRepository, SeriesRepository, ViewRepository
+from .repositories.sqlite.api import SQLiteDigestionRepository, SQLiteProgramRepository, SQLiteRecordingRepository, SQLiteSeriesRepository, SQLiteViewRepository
+from .repositories.bigquery.api import BigQueryDigestionRepository, BigQueryProgramRepository, BigQueryRecordingRepository, BigQuerySeriesRepository, BigQueryViewRepository
 from .smb import SMB
 from .edcb import CtrlCmdUtil
 
@@ -67,21 +67,20 @@ def _repo_getter_factory(sqlite_cls, bq_cls):
     return _getter
 
 
-# Program repository dependency
 get_prog_repo = _repo_getter_factory(SQLiteProgramRepository, BigQueryProgramRepository)
 ProgramRepositoryDep = Annotated[ProgramRepository, Depends(get_prog_repo)]
 
-# Recording repository dependency
 get_rec_repo = _repo_getter_factory(SQLiteRecordingRepository, BigQueryRecordingRepository)
 RecordingRepositoryDep = Annotated[RecordingRepository, Depends(get_rec_repo)]
 
-# View repository dependency
 get_view_repo = _repo_getter_factory(SQLiteViewRepository, BigQueryViewRepository)
 ViewRepositoryDep = Annotated[ViewRepository, Depends(get_view_repo)]
 
-# Digestion repository dependency
 get_dig_repo = _repo_getter_factory(SQLiteDigestionRepository, BigQueryDigestionRepository)
 DigestionRepositoryDep = Annotated[DigestionRepository, Depends(get_dig_repo)]
+
+get_series_repo = _repo_getter_factory(SQLiteSeriesRepository, BigQuerySeriesRepository)
+SeriesRepositoryDep = Annotated[SeriesRepository, Depends(get_series_repo)]
 
 def get_db_connection_factory():
     """BackgroundTasks など別スレッドで接続する用

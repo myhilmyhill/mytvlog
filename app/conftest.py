@@ -5,9 +5,10 @@ from fastapi.testclient import TestClient
 from .main import app
 from .smb import SMB
 from .edcb import CtrlCmdUtil
-from .dependencies import make_db_connection, get_db_connection, get_db_connection_factory, get_smb, get_edcb, get_prog_repo, get_rec_repo, get_view_repo, get_dig_repo
+from .dependencies import make_db_connection, get_db_connection, get_db_connection_factory, get_smb, get_edcb, get_prog_repo, get_rec_repo, get_view_repo, get_dig_repo, get_series_repo
 from .repositories.sqlite.api import (
-    SQLiteProgramRepository, SQLiteRecordingRepository, SQLiteViewRepository, SQLiteDigestionRepository
+    SQLiteProgramRepository, SQLiteRecordingRepository, SQLiteViewRepository, SQLiteDigestionRepository,
+    SQLiteSeriesRepository
 )
 
 @pytest.fixture
@@ -65,6 +66,7 @@ def client(con, con_factory, smb, edcb):
     app.dependency_overrides[get_rec_repo] = lambda: SQLiteRecordingRepository(con)
     app.dependency_overrides[get_view_repo] = lambda: SQLiteViewRepository(con)
     app.dependency_overrides[get_dig_repo] = lambda: SQLiteDigestionRepository(con)
+    app.dependency_overrides[get_series_repo] = lambda: SQLiteSeriesRepository(con)
 
     # middleware はテストではすべて読み込まない
     app.user_middleware.clear()

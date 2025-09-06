@@ -1,9 +1,11 @@
+import time
 from pydantic import BaseModel
+from rapidfuzz import fuzz
 from datetime import datetime, timedelta
 from sqlite3 import Connection
 import re
-from ...models.api import ProgramBase, ProgramQueryParams, ProgramGetBase, ProgramGet, ViewBase, ViewQueryParams, ViewGet, RecordingBase, RecordingQueryParams, RecordingGet, Digestion
-from ..interfaces import ProgramRepository, ViewRepository, RecordingRepository, DigestionRepository
+from ...models.api import ProgramBase, ProgramQueryParams, ProgramGetBase, ProgramGet, ViewBase, ViewQueryParams, ViewGet, RecordingBase, RecordingQueryParams, RecordingGet, Series, SeriesQueryParams, SeriesWithPrograms, Digestion
+from ..interfaces import ProgramRepository, ViewRepository, RecordingRepository, SeriesRepository, DigestionRepository
 from ..exceptions import NotFoundError, InvalidDataError, UnexpectedError
 from ..utils import extract_model_fields
 
@@ -327,6 +329,94 @@ class SQLiteRecordingRepository(RecordingRepository):
         })
         self.con.commit()
         return accepted
+
+class SQLiteSeriesRepository(SeriesRepository):
+    def __init__(self, con: Connection):
+        self.con = con
+
+    def search(self, params: SeriesQueryParams) -> list[Series]:
+        cur = self.con.execute("""
+            SELECT
+                id
+              , name
+              , created_at AS "created_at [timestamp]"
+            FROM series
+            WHERE name LIKE '%' || ? || '%'
+            ORDER BY created_at DESC
+            LIMIT ? OFFSET ?
+        """, (params.name, params.size, (params.page - 1) * params.size))
+        rows = cur.fetchall()
+        return [Series(**row) for row in rows]
+    
+    def create(self, name: str, created_at: datetime) -> int | str:
+        cur = self.con.execute("""
+            INSERT INTO series(name, created_at)
+            VALUES(?, ?)
+        """, (name, created_at))
+        self.con.commit()
+        return cur.lastrowid
+    
+    def get_by_id(self, id: int | str) -> SeriesWithPrograms:
+        cur = self.con.execute("""
+            SELECT
+                id
+              , name
+              , created_at AS "created_at [timestamp]"
+            FROM series
+            WHERE id = ?
+        """, (id,))
+        row = cur.fetchone()
+        if row is None:
+            raise NotFoundError()
+        series = Series(**row)
+
+        cur = self.con.execute("""
+            WITH agg_views AS (
+                SELECT
+                    program_id
+                , json_group_array(viewed_time) AS viewed_times_json
+                FROM views
+                GROUP BY program_id
+            )
+            SELECT
+              p.id
+            , p.event_id
+            , p.service_id
+            , p.name
+            , p.start_time AS "start_time [timestamp]"
+            , p.duration
+            , p.text
+            , p.ext_text
+            , p.created_at AS "created_at [timestamp]"
+            , av.viewed_times_json
+            FROM programs p
+            LEFT OUTER JOIN agg_views av ON av.program_id = p.id
+            INNER JOIN program_series ps ON ps.program_id = p.id
+            WHERE ps.series_id = ?
+            ORDER BY p.start_time DESC
+        """, (id,))
+        rows = cur.fetchall()
+        programs = [ProgramGet(**r) for r in rows]
+        print(SeriesWithPrograms(
+            **series.model_dump(),
+            programs=programs,
+        ))
+        return SeriesWithPrograms(
+            **series.model_dump(),
+            programs=programs,
+        )
+    
+    def add_program(self, series_id: int | str, program_id: int | str) -> None:
+        series_not_found = self.con.execute("SELECT 1 FROM series WHERE id = ?", (series_id,)).fetchone() is None        
+        program_not_found = self.con.execute("SELECT 1 FROM programs WHERE id = ?", (program_id,)).fetchone() is None
+        if series_not_found or program_not_found:
+            raise NotFoundError("Not found: " + ("series " if series_not_found else "") + ("program" if program_not_found else ""))
+
+        cur = self.con.execute("""
+            INSERT OR IGNORE INTO program_series(series_id, program_id)
+            VALUES(?, ?)
+        """, (series_id, program_id))
+        self.con.commit()
 
 class SQLiteDigestionRepository(DigestionRepository):
     def __init__(self, con: Connection):

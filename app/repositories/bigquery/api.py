@@ -2,8 +2,8 @@ from datetime import datetime, timedelta
 import re
 import uuid
 from google.cloud import bigquery
-from ...models.api import ProgramBase, ProgramQueryParams, ProgramGetBase, ProgramGet, ViewBase, ViewQueryParams, ViewGet, RecordingBase, RecordingQueryParams, RecordingGet, Digestion
-from ..interfaces import ProgramRepository, ViewRepository, RecordingRepository, DigestionRepository
+from ...models.api import ProgramBase, ProgramQueryParams, ProgramGetBase, ProgramGet, ViewBase, ViewQueryParams, ViewGet, RecordingBase, RecordingQueryParams, RecordingGet, Series, Digestion
+from ..interfaces import ProgramRepository, ViewRepository, RecordingRepository, SeriesRepository, DigestionRepository
 from ..exceptions import InvalidDataError
 from ..utils import extract_model_fields
 
@@ -318,6 +318,13 @@ class BigQueryRecordingRepository(BigQueryBaseRepository, RecordingRepository):
 
     def update_patch(self, id: str, patch: dict, smb, background_tasks, con_factory) -> bool:
         raise NotImplementedError
+
+class BigQuerySeriesRepository(BigQueryBaseRepository, SeriesRepository):
+    def __init__(self, project_id: str, dataset_id: str):
+        super().__init__(project_id, dataset_id)
+
+    def search(self) -> list[Series]:
+        pass
 
 class BigQueryDigestionRepository(BigQueryBaseRepository, DigestionRepository):
     def __init__(self, project_id: str, dataset_id: str):

@@ -121,6 +121,27 @@ class RecordingPatch(BaseModel):
         default=None, title="値を設定した場合、実際のファイルも削除されます"
     )
 
+class Series(BaseModel):
+    id: int | str
+    name: str
+    created_at: datetime
+
+class SeriesWithPrograms(Series):
+    programs: list[ProgramGet]
+
+class SeriesQueryParams(BaseModel):
+    name: str = Query(default="")
+    page: int = Query(default=1)
+    size: int = Query(default=100)
+
+class SeriesPost(BaseModel):
+    name: str
+    created_at: datetime = datetime.now()
+
+# add_program_to_series
+class SeriesAddProgram(BaseModel):
+    program_id: int | str
+
 class Digestion(BaseModel):
     id: int | str
     name: str

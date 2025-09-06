@@ -2,8 +2,8 @@ import re
 from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Path, Body, HTTPException, BackgroundTasks, Response, status
 
-from ..models.api import ProgramQueryParams, ProgramGet, ViewQueryParams, ViewGet, ViewPost, RecordingQueryParams, RecordingGet, RecordingPost, RecordingPatch, Digestion
-from ..dependencies import DbConnectionFactoryDep, DigestionRepositoryDep, ProgramRepositoryDep, RecordingRepositoryDep, SmbDep, ViewRepositoryDep
+from ..models.api import ProgramQueryParams, ProgramGet, Series, SeriesAddProgram, SeriesPost, SeriesWithPrograms, ViewQueryParams, ViewGet, ViewPost, RecordingQueryParams, RecordingGet, RecordingPost, RecordingPatch, SeriesQueryParams, Digestion
+from ..dependencies import DbConnectionFactoryDep, DigestionRepositoryDep, ProgramRepositoryDep, RecordingRepositoryDep, SmbDep, ViewRepositoryDep, SeriesRepositoryDep
 from ..repositories.exceptions import InvalidDataError, NotFoundError, UnexpectedError
 from .recordings import import_api, validate
 
@@ -76,3 +76,28 @@ def patch_recording(
 @router.get("/api/digestions", response_model=list[Digestion])
 def get_digestions(dig_repo: DigestionRepositoryDep):
     return dig_repo.list_digestions()
+
+@router.get("/api/series", response_model=list[Series])
+def get_series(params: Annotated[SeriesQueryParams, Depends()], series_repo: SeriesRepositoryDep):
+    return series_repo.search(params)
+
+@router.post("/api/series", response_model=Series)
+def create_series(params: Annotated[SeriesPost, Body()], series_repo: SeriesRepositoryDep):
+    id_ = series_repo.create(params.name, params.created_at)
+    return series_repo.get_by_id(id_)
+
+@router.get("/api/series/{id}", response_model=SeriesWithPrograms)
+def get_series_by_id(id: int | str, series_repo: SeriesRepositoryDep):
+    try:
+        series = series_repo.get_by_id(id)
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=e.detail)
+    return series
+
+@router.post("/api/series/{id}/programs")
+def add_program_to_series(id: int | str, params: SeriesAddProgram, series_repo: SeriesRepositoryDep):
+    try:
+        series_repo.add_program(id, params.program_id)
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=e.detail)
+    return

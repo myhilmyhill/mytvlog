@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Series</h1>
+
+<form>
+  <fieldset>
+    <legend>絞り込み</legend>
+    <label>From<input type="date" name="from_" value="{{ request.query_params.from_ }}"></label>
+    <label>To<input type="date" name="to" value="{{ request.query_params.to }}"></label>
+    <label>Name<input type="text" name="name" value="{{ request.query_params.name }}"></label>
+    <button type="submit">Search</button>
+  </fieldset>
+</form>
+
+<table>
+  <thead>
+    <tr>
+      <th>id
+      <th>name
+  <tbody>
+  {% for s in series %}
+    <tr>
+      <td>{{ p.id }}
+      <td>{{ p.name }}
+  {% endfor %}
+</table>
+
+<form>
+  <input type="hidden" name="from_" value="{{ request.query_params.from_ }}">
+  <input type="hidden" name="to" value="{{ request.query_params.to }}">
+  <input type="hidden" name="name" value="{{ request.query_params.name }}">
+  <input type="hidden" name="page" value="{{ params.page + 1 }}">
+  <button type="submit">次</button>
+</form>
+{% endblock %}

@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
 
 import os
-from .dependencies import DigestionRepositoryDep, ProgramRepositoryDep, RecordingRepositoryDep, ViewRepositoryDep
+from .dependencies import DigestionRepositoryDep, ProgramRepositoryDep, RecordingRepositoryDep, SeriesRepositoryDep, ViewRepositoryDep
 from .middlewares.firebase_auth import FirebaseAuthMiddleware
 from .routers import api, auth
 
@@ -77,3 +77,12 @@ def views(request: Request,
 
     return templates.TemplateResponse(
         request=request, name="views.html", context={"views": views, "params": params})
+
+@app.get("/series", response_class=HTMLResponse)
+def views(request: Request,
+          params: Annotated[api.SeriesQueryParams, Depends()],
+          series_repo: SeriesRepositoryDep):
+    series = api.get_series(params, series_repo)
+
+    return templates.TemplateResponse(
+        request=request, name="series.html", context={"series": series, "params": params})

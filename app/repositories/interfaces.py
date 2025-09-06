@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
-from ..models.api import ProgramBase, ProgramQueryParams, ProgramGet, ViewBase, ViewQueryParams, ViewGet, RecordingBase, RecordingQueryParams, RecordingGet, Digestion
+from ..models.api import ProgramBase, ProgramQueryParams, ProgramGet, ViewBase, ViewQueryParams, ViewGet, RecordingBase, RecordingQueryParams, RecordingGet, Series, SeriesWithPrograms, SeriesQueryParams, Digestion
 
 class ProgramRepository(ABC):
     @abstractmethod
@@ -31,6 +31,19 @@ class RecordingRepository(ABC):
 
     @abstractmethod
     def update_patch(self, id: int | str, patch: dict, smb, background_tasks, con_factory) -> bool: ...
+
+class SeriesRepository(ABC):
+    @abstractmethod
+    def search(self, params: SeriesQueryParams) -> list[Series]: ...
+
+    @abstractmethod
+    def get_by_id(self, id: int | str) -> SeriesWithPrograms | None: ...
+
+    @abstractmethod
+    def create(self, title: str, created_at: datetime) -> int | str: ...
+
+    @abstractmethod
+    def add_program(self, series_id: int | str, program_id: int | str) -> None: ...
 
 class DigestionRepository(ABC):
     @abstractmethod
