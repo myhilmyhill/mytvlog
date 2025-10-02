@@ -32,40 +32,33 @@ class BigQueryProgramRepository(BigQueryBaseRepository, ProgramRepository):
             "offset": (params.page - 1) * params.size,
         }
         job = self.client.query("""
-            WITH agg_views AS (
-            SELECT
-                program_id,
-                TO_JSON_STRING(ARRAY_AGG(viewed_time)) AS viewed_times_json
-            FROM tv_test.views
-            GROUP BY program_id
-            )
-            SELECT
-                p.id,
-                p.event_id,
-                p.service_id,
-                p.name,
-                p.start_time,
-                p.duration,
-                p.text,
-                p.ext_text,
-                p.created_at,
-                agg_views.viewed_times_json
-            FROM tv_test.programs p
-            LEFT JOIN agg_views ON agg_views.program_id = p.id
-            WHERE
-              (@from IS NOT NULL OR @to IS NOT NULL OR @name != '')
-                AND (@from IS NULL OR p.start_time >= @from)
-                AND (@to IS NULL OR TIMESTAMP_ADD(p.start_time, INTERVAL p.duration SECOND) < @to)
-                AND (@name = '' OR p.name LIKE CONCAT('%', @name, '%')
-              )
-              OR
-              (@from IS NULL AND @to IS NULL AND @name = ''
-                AND DATE(p.start_time) BETWEEN DATE_TRUNC(CURRENT_DATE(), WEEK(MONDAY))
-                                           AND DATE_ADD(DATE_TRUNC(CURRENT_DATE(), WEEK(MONDAY)), INTERVAL 6 DAY)
-              )
-            ORDER BY p.start_time DESC
-            LIMIT @size
-            OFFSET @offset
+WITH agg_views AS (
+    SELECT
+        program_id,
+        TO_JSON_STRING(ARRAY_AGG(viewed_time)) AS viewed_times_json
+    FROM views
+    GROUP BY program_id
+)
+SELECT
+    programs.id,
+    programs.event_id,
+    programs.service_id,
+    programs.name,
+    programs.start_time,
+    programs.duration,
+    programs.text,
+    programs.ext_text,
+    programs.created_at,
+    agg_views.viewed_times_json
+FROM programs
+LEFT JOIN agg_views ON agg_views.program_id = programs.id
+WHERE
+    TRUE
+    AND (@from IS NULL OR @from <= programs.start_time)
+    AND (@to IS NULL OR TIMESTAMP_ADD(programs.start_time, INTERVAL programs.duration SECOND) < @to)
+    AND (@name = '' OR programs.name LIKE CONCAT('%', @name, '%'))
+ORDER BY programs.start_time DESC
+LIMIT @size OFFSET @offset
             """,
             job_config=self._make_query_job_config(query_parameters=[
                 bigquery.ScalarQueryParameter("from", "TIMESTAMP", query_params["from"]),
