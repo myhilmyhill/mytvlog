@@ -1,5 +1,5 @@
 from fastapi import Request
-from starlette.responses import HTMLResponse
+from starlette.responses import HTMLResponse, RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 import firebase_admin
 from firebase_admin import credentials, auth
@@ -52,4 +52,4 @@ class FirebaseAuthMiddleware(BaseHTTPMiddleware):
                 else:
                     print(f"{e.__class__.__name__}: {e}")
 
-        return HTMLResponse(status_code=404)
+        return RedirectResponse(url="/")

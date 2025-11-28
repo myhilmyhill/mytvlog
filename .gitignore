@@ -1,6 +1,5 @@
 *.env
 db/tv*.db
-app/static/user-scripts.js
 credentials.json
 serviceAccountKey.json
 

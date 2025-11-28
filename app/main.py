@@ -9,12 +9,14 @@ import os
 from .dependencies import DigestionRepositoryDep, ProgramRepositoryDep, RecordingRepositoryDep, SeriesRepositoryDep, ViewRepositoryDep
 from .middlewares.firebase_auth import FirebaseAuthMiddleware
 from .routers import api, auth
+from .routers.auth import github
 
 app = FastAPI()
 app.add_middleware(GZipMiddleware, minimum_size=500)
 app.add_middleware(FirebaseAuthMiddleware)
 app.include_router(api.router)
 app.include_router(auth.router)
+app.include_router(github.router)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 templates.env.globals["config"] = {
