@@ -4,7 +4,7 @@ import uuid
 from google.cloud import bigquery
 from ...models.api import ProgramBase, ProgramQueryParams, ProgramGetBase, ProgramGet, ViewBase, ViewQueryParams, ViewGet, RecordingBase, RecordingQueryParams, RecordingGet, Series, Digestion
 from ..interfaces import ProgramRepository, ViewRepository, RecordingRepository, SeriesRepository, DigestionRepository
-from ..exceptions import InvalidDataError
+from ..exceptions import InvalidDataError, NotFoundError, UnexpectedError
 from ..utils import extract_model_fields
 
 class BigQueryBaseRepository:
@@ -309,8 +309,77 @@ class BigQueryRecordingRepository(BigQueryBaseRepository, RecordingRepository):
         ])).result()
         return new_id
 
-    def update_patch(self, id: str, patch: dict, smb, background_tasks, con_factory) -> bool:
-        raise NotImplementedError
+    def update_patch(self, id: str, patch: dict, smb=None, background_tasks=None, con_factory=None) -> bool:
+        diff = patch.model_dump(exclude_unset=True)
+
+        # Handle deleted_at
+        if "deleted_at" in diff and diff["deleted_at"] is not None:
+            if "file_path" in diff and diff["file_path"] != "":
+                raise InvalidDataError(detail="Invalid file_path: should be unset")
+            
+            # Set file_path to empty string when deleting
+            patch.file_path = diff["file_path"] = ""
+
+        # Handle file_folder - convert to file_path
+        elif "file_folder" in diff:
+            if "file_path" in diff:
+                raise InvalidDataError(detail="Invalid file_path: should be unset")
+
+            row = next(self.client.query("""
+                SELECT file_path FROM recordings WHERE id = @id
+                """, job_config=self._make_query_job_config(query_parameters=[
+                    bigquery.ScalarQueryParameter("id", "STRING", id)
+            ])).result(), None)
+            
+            if row is None:
+                raise NotFoundError()
+            
+            file_path = row["file_path"]
+            if file_path == "":
+                raise NotFoundError()
+
+            file_path_splited = file_path.split("/")    # //server/folder/to/file
+
+            if len(file_path_splited) < 4:
+                raise UnexpectedError(detail="Invalid file_path")
+
+            file_path_splited[3] = patch.file_folder
+            patch.file_path = diff["file_path"] = "/".join(file_path_splited)
+
+        # Validate file_path if provided
+        elif "file_path" in diff:
+            if not re.fullmatch("//[^/]+/[^/]+/.*", diff["file_path"]):
+                raise InvalidDataError(detail="Invalid file_path; should be '//server/folder/to/file'")
+
+        # Build UPDATE query dynamically
+        update_parts = []
+        query_params = [bigquery.ScalarQueryParameter("id", "STRING", id)]
+        
+        if "file_path" in diff:
+            update_parts.append("file_path = @file_path")
+            query_params.append(bigquery.ScalarQueryParameter("file_path", "STRING", patch.file_path))
+            
+            # If file_path is being set to empty, also set file_size to NULL
+            if patch.file_path == "":
+                update_parts.append("file_size = NULL")
+        
+        if "watched_at" in diff:
+            update_parts.append("watched_at = @watched_at")
+            query_params.append(bigquery.ScalarQueryParameter("watched_at", "TIMESTAMP", patch.watched_at))
+        
+        if "deleted_at" in diff:
+            update_parts.append("deleted_at = @deleted_at")
+            query_params.append(bigquery.ScalarQueryParameter("deleted_at", "TIMESTAMP", patch.deleted_at))
+        
+        if update_parts:
+            query = f"""
+                UPDATE recordings 
+                SET {', '.join(update_parts)}
+                WHERE id = @id
+            """
+            self.client.query(query, job_config=self._make_query_job_config(query_parameters=query_params)).result()
+        
+        return False
 
 class BigQuerySeriesRepository(BigQueryBaseRepository, SeriesRepository):
     def __init__(self, project_id: str, dataset_id: str):
