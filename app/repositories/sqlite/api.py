@@ -261,28 +261,18 @@ class SQLiteRecordingRepository(RecordingRepository):
         self.con.commit()
         return cur.lastrowid
 
-    def update_patch(self, id: int, patch: dict, smb, background_tasks, con_factory) -> bool:
+    def update_patch(self, id: int, patch: dict) -> bool:
         diff = patch.model_dump(exclude_unset=True)
-        accepted = False
 
+        # Handle deleted_at
         if "deleted_at" in diff and diff["deleted_at"] is not None:
             if "file_path" in diff and diff["file_path"] != "":
                 raise InvalidDataError(detail="Invalid file_path: should be unset")
-
-            file_path, = self.con.execute("SELECT file_path FROM recordings WHERE id = ?", (id,)).fetchone()
-            if file_path != "":
-                def delete_file(con_factory):
-                    smb.delete_files(f"{file_path}*")
-
-                    with con_factory() as con:
-                        con.execute("UPDATE recordings SET file_path = ?, file_size = NULL WHERE id = ?", ("", id))
-                        con.commit()
-
-                background_tasks.add_task(delete_file, con_factory)
-                accepted = True
-
+            
+            # Set file_path to empty string when deleting
             patch.file_path = diff["file_path"] = ""
 
+        # Handle file_folder - convert to file_path
         elif "file_folder" in diff:
             if "file_path" in diff:
                 raise InvalidDataError(detail="Invalid file_path: should be unset")
@@ -293,42 +283,43 @@ class SQLiteRecordingRepository(RecordingRepository):
 
             file_path_splited = file_path.split("/")    # //server/folder/to/file
 
-            if len(file_path_splited) < 3:
+            if len(file_path_splited) < 4:
                 raise UnexpectedError(detail="Invalid file_path")
 
             file_path_splited[3] = patch.file_folder
             patch.file_path = diff["file_path"] = "/".join(file_path_splited)
 
-            def move_file(con_factory):
-                smb.move_files_by_root(f"{file_path}*", patch.file_folder)
-
-                with con_factory() as con:
-                    con.execute("UPDATE recordings SET file_path = ? WHERE id = ?", (patch.file_path, id))
-                    con.commit()
-
-            background_tasks.add_task(move_file, con_factory)
-            accepted = True
-
+        # Validate file_path if provided
         elif "file_path" in diff:
             if not re.fullmatch("//[^/]+/[^/]+/.*", diff["file_path"]):
                 raise InvalidDataError(detail="Invalid file_path; should be '//server/folder/to/file'")
 
-            self.con.execute("UPDATE recordings SET file_path = ? WHERE id = ?", (patch.file_path, id))
-
-        cur = self.con.execute("""
-            UPDATE recordings SET
-                watched_at = CASE WHEN :set_watched THEN :watched_at ELSE watched_at END,
-                deleted_at = CASE WHEN :set_deleted THEN :deleted_at ELSE deleted_at END
-            WHERE id = :id
-        """, {
-            "id": id,
-            "set_watched": "watched_at" in diff,
-            "watched_at": patch.watched_at,
-            "set_deleted": "deleted_at" in diff,
-            "deleted_at": patch.deleted_at,
-        })
+        # Build UPDATE query
+        update_parts = []
+        params = {"id": id}
+        
+        if "file_path" in diff:
+            update_parts.append("file_path = :file_path")
+            params["file_path"] = patch.file_path
+            
+            # If file_path is being set to empty, also set file_size to NULL
+            if patch.file_path == "":
+                update_parts.append("file_size = NULL")
+        
+        if "watched_at" in diff:
+            update_parts.append("watched_at = :watched_at")
+            params["watched_at"] = patch.watched_at
+        
+        if "deleted_at" in diff:
+            update_parts.append("deleted_at = :deleted_at")
+            params["deleted_at"] = patch.deleted_at
+        
+        if update_parts:
+            query = f"UPDATE recordings SET {', '.join(update_parts)} WHERE id = :id"
+            self.con.execute(query, params)
+        
         self.con.commit()
-        return accepted
+        return False
 
 class SQLiteSeriesRepository(SeriesRepository):
     def __init__(self, con: Connection):

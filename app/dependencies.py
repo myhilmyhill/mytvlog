@@ -9,8 +9,7 @@ from .models.api import JST
 from .repositories.interfaces import DigestionRepository, ProgramRepository, RecordingRepository, SeriesRepository, ViewRepository
 from .repositories.sqlite.api import SQLiteDigestionRepository, SQLiteProgramRepository, SQLiteRecordingRepository, SQLiteSeriesRepository, SQLiteViewRepository
 from .repositories.bigquery.api import BigQueryDigestionRepository, BigQueryProgramRepository, BigQueryRecordingRepository, BigQuerySeriesRepository, BigQueryViewRepository
-from .smb import SMB
-from .edcb import CtrlCmdUtil
+
 
 def make_db_connection(db_path, **kwargs):
     con = sqlite3.connect(db_path, detect_types=sqlite3.PARSE_COLNAMES, **kwargs)
@@ -90,17 +89,4 @@ def get_db_connection_factory():
 
 DbConnectionFactoryDep = Annotated[Callable[[], sqlite3.Connection], Depends(get_db_connection_factory)]
 
-def get_smb():
-    smb_server = os.environ["smb_server"]
-    yield SMB(smb_server, os.environ["smb_username"], os.environ["smb_password"])
 
-SmbDep = Annotated[SMB, Depends(get_smb)]
-
-def get_edcb():
-    server = os.environ["edcb_server"]
-    port = os.getenv("edcb_port", "4510")
-    c = CtrlCmdUtil()
-    c.setNWSetting(server, port)
-    yield c
-
-EdcbDep = Annotated[CtrlCmdUtil, Depends(get_edcb)]

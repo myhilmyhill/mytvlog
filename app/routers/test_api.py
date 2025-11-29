@@ -601,7 +601,7 @@ def test_create_recording(con, client):
     }
 
 @pytest.mark.parametrize("in_file_path", INVALID_FILE_PATHS)
-def test_create_recordings_file_path_指定書式以外は例外(in_file_path, con, client, smb):
+def test_create_recordings_file_path_指定書式以外は例外(in_file_path, con, client):
     response = client.post("/api/recordings", json={
         "program": {
             "event_id": 11,
@@ -618,7 +618,7 @@ def test_create_recordings_file_path_指定書式以外は例外(in_file_path, c
     })
     assert response.status_code == 400
 
-def test_patch_recording_set_watched(con, client, smb):
+def test_patch_recording_set_watched(con, client):
     con.executescript("""
         INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'))
@@ -632,7 +632,7 @@ def test_patch_recording_set_watched(con, client, smb):
         "watched_at": "2025-05-12T13:00:00+09:00",
         "file_folder": "archives",
     })
-    assert response.status_code == 202
+    assert response.status_code == 200
     recording = response.json()
     assert recording["id"] == 1
     assert recording["file_path"] == "//server/archives/test1"
@@ -641,7 +641,7 @@ def test_patch_recording_set_watched(con, client, smb):
     assert recording["watched_at"] == "2025-05-12T13:00:00+09:00"
     assert recording["deleted_at"] == None
 
-    smb.move_files_by_root.assert_called_with("//server/recorded/test1*", "archives")
+
 
 def test_patch_recording_unset_watched(con, client):
     con.executescript("""
@@ -665,7 +665,7 @@ def test_patch_recording_unset_watched(con, client):
     assert recording["watched_at"] == None
     assert recording["deleted_at"] == None
 
-def test_patch_recording_set_deleted(con, client, smb):
+def test_patch_recording_set_deleted(con, client):
     con.executescript("""
         INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'))
@@ -678,7 +678,7 @@ def test_patch_recording_set_deleted(con, client, smb):
     response = client.patch("/api/recordings/1", json={
         "deleted_at": "2025-05-12T13:10:00+09:00",
     })
-    assert response.status_code == 202
+    assert response.status_code == 200
     recording = response.json()
     assert recording["id"] == 1
     assert recording["file_path"] == ""
@@ -687,7 +687,7 @@ def test_patch_recording_set_deleted(con, client, smb):
     assert recording["watched_at"] == "2025-05-12T13:00:00+09:00"
     assert recording["deleted_at"] == "2025-05-12T13:10:00+09:00"
 
-    smb.delete_files.assert_called_with("//server/archives/test1*")
+
 
 def test_patch_recording_unset_deleted(con, client):
     con.executescript("""
@@ -711,7 +711,7 @@ def test_patch_recording_unset_deleted(con, client):
     assert recording["watched_at"] == "2025-05-12T13:00:00+09:00"
     assert recording["deleted_at"] == None
 
-def test_patch_recording_change_file_path(con, client, smb):
+def test_patch_recording_change_file_path(con, client):
     con.executescript("""
         INSERT INTO programs(id, event_id, service_id, name, start_time, duration, created_at) VALUES
             (1, 11, 101, 'Test Program', unixepoch('2025-05-12T12:00:00+09:00'), 1800, unixepoch('2025-05-12T12:01:00+09:00'))
@@ -730,7 +730,7 @@ def test_patch_recording_change_file_path(con, client, smb):
     assert recording["file_path"] == "//server/recorded2/test"
     assert recording["file_folder"] == "recorded2"
 
-    smb.move_files_by_root.assert_not_called()
+
 
 @pytest.mark.parametrize("in_file_path", INVALID_FILE_PATHS)
 def test_patch_recordings_change_file_path_指定書式以外は例外(in_file_path, con, client):

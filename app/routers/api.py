@@ -1,15 +1,12 @@
 import re
 from typing import Annotated, Literal
-from fastapi import APIRouter, Depends, Path, Body, HTTPException, BackgroundTasks, Response, status
+from fastapi import APIRouter, Depends, Path, Body, HTTPException, Response, status
 
 from ..models.api import ProgramQueryParams, ProgramGet, Series, SeriesAddProgram, SeriesPost, SeriesWithPrograms, ViewQueryParams, ViewGet, ViewPost, RecordingQueryParams, RecordingGet, RecordingPost, RecordingPatch, SeriesQueryParams, Digestion
-from ..dependencies import DbConnectionFactoryDep, DigestionRepositoryDep, ProgramRepositoryDep, RecordingRepositoryDep, SmbDep, ViewRepositoryDep, SeriesRepositoryDep
+from ..dependencies import DigestionRepositoryDep, ProgramRepositoryDep, RecordingRepositoryDep, ViewRepositoryDep, SeriesRepositoryDep
 from ..repositories.exceptions import InvalidDataError, NotFoundError, UnexpectedError
-from .recordings import import_api, validate
 
 router = APIRouter()
-router.include_router(import_api.router)
-router.include_router(validate.router)
 
 @router.get("/api/programs", response_model=list[ProgramGet])
 def get_programs(params: Annotated[ProgramQueryParams, Depends()], repo: ProgramRepositoryDep):
@@ -59,10 +56,9 @@ def create_recording(item: Annotated[RecordingPost, Body()], prog_repo: ProgramR
 def patch_recording(
         item: Annotated[RecordingPatch, Body()], id: Annotated[int | str, Path()],
         response: Response,
-        con_factory: DbConnectionFactoryDep, smb: SmbDep, background_tasks: BackgroundTasks,
         rec_repo: RecordingRepositoryDep):
     try:
-        accepted = rec_repo.update_patch(id, item, smb, background_tasks, con_factory)
+        accepted = rec_repo.update_patch(id, item)
         if accepted:
             response.status_code = status.HTTP_202_ACCEPTED
         return rec_repo.get_by_id(id)

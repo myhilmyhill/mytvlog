@@ -309,7 +309,7 @@ class BigQueryRecordingRepository(BigQueryBaseRepository, RecordingRepository):
         ])).result()
         return new_id
 
-    def update_patch(self, id: str, patch: dict, smb=None, background_tasks=None, con_factory=None) -> bool:
+    def update_patch(self, id: str, patch: dict) -> bool:
         diff = patch.model_dump(exclude_unset=True)
 
         # Handle deleted_at
