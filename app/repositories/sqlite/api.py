@@ -31,6 +31,7 @@ class SQLiteProgramRepository(ProgramRepository):
             , duration
             , text
             , ext_text
+            , genre
             , created_at AS "created_at [timestamp]"
             , agg_views.viewed_times_json
             FROM programs
@@ -72,6 +73,7 @@ class SQLiteProgramRepository(ProgramRepository):
             , duration
             , text
             , ext_text
+            , genre
             , created_at AS "created_at [timestamp]"
             , agg_views.viewed_times_json
             FROM programs
@@ -101,8 +103,8 @@ class SQLiteProgramRepository(ProgramRepository):
             return id
 
         cur.execute("""
-            INSERT INTO programs(event_id, service_id, name, start_time, duration, text, ext_text, created_at)
-            VALUES(?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO programs(event_id, service_id, name, start_time, duration, text, ext_text, genre, created_at)
+            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             program.event_id,
             program.service_id,
@@ -111,8 +113,10 @@ class SQLiteProgramRepository(ProgramRepository):
             program.duration,
             program.text,
             program.ext_text,
+            program.genre,
             created_at
         ))
+        self.con.commit()
         return cur.lastrowid
 
 class SQLiteViewRepository(ViewRepository):
@@ -175,6 +179,7 @@ class SQLiteRecordingRepository(RecordingRepository):
             , programs.duration
             , programs.text
             , programs.ext_text
+            , programs.genre
             , programs.created_at AS "program_created_at [timestamp]"
             FROM recordings INNER JOIN programs ON programs.id = recordings.program_id
             WHERE
@@ -225,6 +230,7 @@ class SQLiteRecordingRepository(RecordingRepository):
             , programs.duration
             , programs.text
             , programs.ext_text
+            , programs.genre
             , programs.created_at AS "program_created_at [timestamp]"
             FROM recordings INNER JOIN programs ON programs.id = recordings.program_id
             WHERE recordings.id = ?
@@ -331,19 +337,27 @@ class SQLiteSeriesRepository(SeriesRepository):
                 id
               , name
               , created_at AS "created_at [timestamp]"
+              , modified_at AS "modified_at [timestamp]"
             FROM series
             WHERE name LIKE '%' || ? || '%'
-            ORDER BY created_at DESC
+            ORDER BY modified_at DESC
             LIMIT ? OFFSET ?
         """, (params.name, params.size, (params.page - 1) * params.size))
         rows = cur.fetchall()
         return [Series(**row) for row in rows]
     
-    def create(self, name: str, created_at: datetime) -> int | str:
+    def get_or_create(self, name: str, created_at: datetime) -> int | str:
         cur = self.con.execute("""
-            INSERT INTO series(name, created_at)
-            VALUES(?, ?)
-        """, (name, created_at))
+            SELECT id FROM series WHERE name = ?
+        """, (name,))
+        row = cur.fetchone()
+        if row is not None:
+            return row[0]
+
+        cur = self.con.execute("""
+            INSERT INTO series(name, created_at, modified_at)
+            VALUES(?, ?, ?)
+        """, (name, created_at, created_at))
         self.con.commit()
         return cur.lastrowid
     
@@ -353,6 +367,7 @@ class SQLiteSeriesRepository(SeriesRepository):
                 id
               , name
               , created_at AS "created_at [timestamp]"
+              , modified_at AS "modified_at [timestamp]"
             FROM series
             WHERE id = ?
         """, (id,))
@@ -378,6 +393,7 @@ class SQLiteSeriesRepository(SeriesRepository):
             , p.duration
             , p.text
             , p.ext_text
+            , p.genre
             , p.created_at AS "created_at [timestamp]"
             , av.viewed_times_json
             FROM programs p
@@ -397,16 +413,20 @@ class SQLiteSeriesRepository(SeriesRepository):
             programs=programs,
         )
     
-    def add_program(self, series_id: int | str, program_id: int | str) -> None:
+    def add_program(self, series_id: int | str, program_id: int | str, at: datetime) -> None:
         series_not_found = self.con.execute("SELECT 1 FROM series WHERE id = ?", (series_id,)).fetchone() is None        
         program_not_found = self.con.execute("SELECT 1 FROM programs WHERE id = ?", (program_id,)).fetchone() is None
         if series_not_found or program_not_found:
             raise NotFoundError("Not found: " + ("series " if series_not_found else "") + ("program" if program_not_found else ""))
 
-        cur = self.con.execute("""
+        self.con.execute("""
             INSERT OR IGNORE INTO program_series(series_id, program_id)
             VALUES(?, ?)
         """, (series_id, program_id))
+        self.con.execute("""
+            UPDATE series SET modified_at = CASE WHEN modified_at < ? THEN ? ELSE modified_at END
+            WHERE id = ?
+        """, (at, at, series_id))
         self.con.commit()
 
 class SQLiteDigestionRepository(DigestionRepository):

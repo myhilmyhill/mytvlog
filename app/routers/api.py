@@ -1,9 +1,11 @@
 import re
+from datetime import datetime
 from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Path, Body, HTTPException, Response, status
 
 from ..models.api import ProgramQueryParams, ProgramGet, Series, SeriesAddProgram, SeriesPost, SeriesWithPrograms, ViewQueryParams, ViewGet, ViewPost, RecordingQueryParams, RecordingGet, RecordingPost, RecordingPatch, SeriesQueryParams, Digestion
 from ..dependencies import DigestionRepositoryDep, ProgramRepositoryDep, RecordingRepositoryDep, ViewRepositoryDep, SeriesRepositoryDep
+from ..repositories.utils import extract_series_title
 from ..repositories.exceptions import InvalidDataError, NotFoundError, UnexpectedError
 
 router = APIRouter()
@@ -44,12 +46,16 @@ def get_recording(id: int | str, rec_repo: RecordingRepositoryDep):
     return rec_repo.get_by_id(id)
 
 @router.post("/api/recordings", response_model=RecordingGet)
-def create_recording(item: Annotated[RecordingPost, Body()], prog_repo: ProgramRepositoryDep, rec_repo: RecordingRepositoryDep):
+def create_recording(item: Annotated[RecordingPost, Body()], prog_repo: ProgramRepositoryDep, rec_repo: RecordingRepositoryDep, series_repo: SeriesRepositoryDep):
     if not re.fullmatch("//[^/]+/[^/]+/.*", item.file_path):
         raise HTTPException(status_code=400, detail="Invalid file_path; should be '//server/folder/to/file'")
 
     program_id = prog_repo.get_or_create(item.program, item.created_at, item.created_at)
     id_ = rec_repo.create(item, program_id)
+
+    series_id = series_repo.get_or_create(extract_series_title(item.program.name), item.created_at)
+    series_repo.add_program(series_id, program_id, item.created_at)
+
     return rec_repo.get_by_id(id_)
 
 @router.patch("/api/recordings/{id}")

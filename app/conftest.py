@@ -13,7 +13,7 @@ from .repositories.sqlite.api import (
 def con():
     con = make_db_connection(":memory:", check_same_thread=False)
 
-    with open("db/schema.sql") as f:
+    with open("db/sqlite/schemas.sql") as f:
         con.executescript(f.read())
 
     yield con

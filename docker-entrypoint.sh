@@ -2,7 +2,7 @@
 set -eux
 
 if [ "${DB:-}" = "sqlite" ]; then
-  (cat /app/db/schema.sql; echo ".quit") | python -m sqlite3 /app/db/tv.db
+  (cat /app/db/sqlite/schemas.sql; echo ".quit") | python -m sqlite3 /app/db/tv.db
 fi
 
 if [ "${1:-}" = "dev" ]; then

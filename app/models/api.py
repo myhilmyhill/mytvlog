@@ -29,6 +29,7 @@ class ProgramBase(BaseModel):
     duration: int
     text: str | None = None
     ext_text: str | None = None
+    genre: str | None = None
     created_at: datetime | None = None
 
 class ProgramGetBase(ProgramBase):
@@ -125,6 +126,7 @@ class Series(BaseModel):
     id: int | str
     name: str
     created_at: datetime
+    modified_at: datetime
 
 class SeriesWithPrograms(Series):
     programs: list[ProgramGet]

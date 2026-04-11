@@ -20,6 +20,7 @@
       <th>name
       <th>service_id
       <th>time
+      <th>genre
   <tbody>
   {% for p in programs %}
     <tr>
@@ -32,6 +33,7 @@
       <td>{{ p.name }}
       <td>{{ p.service_id }}
       <td>{{ p.start_time.strftime("%Y/%m/%d(%a) %H:%M") }}-{{ p.end_time.strftime("%H:%M") }}
+      <td>{{ p.genre }}
   {% endfor %}
 </table>
 

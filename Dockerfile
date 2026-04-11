@@ -9,7 +9,7 @@ RUN pip install \
     rapidfuzz
 
 COPY ./app /app/app
-COPY ./db/schema.sql /app/db/schema.sql
+COPY ./db/sqlite/schemas.sql /app/db/sqlite/schemas.sql
 COPY ./docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 COPY ./main.py /app/main.py
 

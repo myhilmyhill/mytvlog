@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS {DATASET}.programs (
   text STRING,
   ext_text STRING,
   created_at TIMESTAMP NOT NULL,
+  genre STRING,
   PRIMARY KEY(id) NOT ENFORCED
 )
 PARTITION BY DATE(start_time);
@@ -37,6 +38,7 @@ CREATE TABLE IF NOT EXISTS {DATASET}.series (
   id STRING NOT NULL,
   name STRING NOT NULL,
   created_at TIMESTAMP NOT NULL,
+  modified_at TIMESTAMP NOT NULL,
   PRIMARY KEY(id) NOT ENFORCED
 );
 

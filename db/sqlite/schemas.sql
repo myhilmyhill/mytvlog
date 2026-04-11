@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS "programs"(
   , text TEXT
   , ext_text TEXT
   , created_at INTEGER NOT NULL
+  , genre TEXT
 ) STRICT
 ;
 -- 録画履歴
@@ -36,6 +37,7 @@ CREATE TABLE IF NOT EXISTS "series"(
     id INTEGER PRIMARY KEY
   , name TEXT NOT NULL
   , created_at INTEGER NOT NULL
+  , modified_at INTEGER NOT NULL
 ) STRICT
 ;
 -- 番組とシリーズの多対多リレーション

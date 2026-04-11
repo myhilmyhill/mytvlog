@@ -32,6 +32,7 @@ def test_get_program(con, client):
         "end_time": "2025-05-12T12:30:00+09:00",
         "text": "Text",
         "ext_text": "Ext Text",
+        "genre": None,
         "created_at": "2025-05-12T12:01:00+09:00",
         "viewed_times": ["2025-05-12T12:05:00+09:00", "2025-05-12T12:10:00+09:00"],
     }
@@ -59,6 +60,7 @@ def test_get_programs(con, client):
         "end_time": "2025-05-12T13:30:00+09:00",
         "text": "Text 2",
         "ext_text": "Ext Text 2",
+        "genre": None,
         "created_at": "2025-05-12T13:31:00+09:00",
         "viewed_times": [],
     },
@@ -72,6 +74,7 @@ def test_get_programs(con, client):
         "end_time": "2025-05-12T12:30:00+09:00",
         "text": "Text",
         "ext_text": "Ext Text",
+        "genre": None,
         "created_at": "2025-05-12T12:01:00+09:00",
         "viewed_times": ["2025-05-12T12:05:00+09:00", "2025-05-12T12:10:00+09:00"],
     }]
@@ -88,6 +91,7 @@ def test_get_programs(con, client):
         "end_time": "2025-05-12T13:30:00+09:00",
         "text": "Text 2",
         "ext_text": "Ext Text 2",
+        "genre": None,
         "created_at": "2025-05-12T13:31:00+09:00",
         "viewed_times": [],
     }]
@@ -104,6 +108,7 @@ def test_get_programs(con, client):
         "end_time": "2025-05-12T12:30:00+09:00",
         "text": "Text",
         "ext_text": "Ext Text",
+        "genre": None,
         "created_at": "2025-05-12T12:01:00+09:00",
         "viewed_times": ["2025-05-12T12:05:00+09:00", "2025-05-12T12:10:00+09:00"],
     }]
@@ -246,6 +251,7 @@ def test_create_view(con, client):
             "duration": 1800,
             "text": "Text",
             "ext_text": "Ext Text",
+            "genre": None,
         },
         "viewed_time": "2025-05-12T12:05:00+09:00",
     })
@@ -275,6 +281,7 @@ def test_create_view_延長でdurationが延びる(con, client):
             "duration": 1860,
             "text": "Text",
             "ext_text": "Ext Text",
+            "genre": None,
         },
         "viewed_time": "2025-05-12T12:05:00+09:00",
     })
@@ -297,6 +304,7 @@ def test_create_view_延長でdurationが縮む(con, client):
             "duration": 1740,
             "text": "Text",
             "ext_text": "Ext Text",
+            "genre": None,
         },
         "viewed_time": "2025-05-12T12:05:00+09:00",
     })
@@ -319,6 +327,7 @@ def test_create_view_created_atより前のviewed_timeでdurationが変化して
             "duration": 1860,
             "text": "Text",
             "ext_text": "Ext Text",
+            "genre": None,
         },
         "viewed_time": "2025-05-12T12:00:00+09:00",
     })
@@ -363,6 +372,7 @@ def test_get_recording(con, client):
             "end_time": "2025-05-12T12:30:00+09:00",
             "text": "Text",
             "ext_text": "Ext Text",
+            "genre": None,
             "created_at": "2025-05-12T12:01:00+09:00",
         }
     }
@@ -387,6 +397,7 @@ def test_get_recording(con, client):
             "end_time": "2025-05-12T12:30:00+09:00",
             "text": "Text",
             "ext_text": "Ext Text",
+            "genre": None,
             "created_at": "2025-05-12T12:01:00+09:00",
         },
     }
@@ -422,6 +433,7 @@ def test_get_recordings(con, client):
             "end_time": "2025-05-12T12:30:00+09:00",
             "text": "Text",
             "ext_text": "Ext Text",
+            "genre": None,
             "created_at": "2025-05-12T12:01:00+09:00",
         }
     }]
@@ -572,6 +584,7 @@ def test_create_recording(con, client):
             "duration": 1800,
             "text": "Text",
             "ext_text": "Ext Text",
+            "genre": None,
         },
         "file_path": "//server/recorded/test1",
         "file_size": 1_000_000_000,
@@ -596,6 +609,7 @@ def test_create_recording(con, client):
             "end_time": "2025-05-12T12:30:00+09:00",
             "text": "Text",
             "ext_text": "Ext Text",
+            "genre": None,
             "created_at": "2025-05-12T12:30:00+09:00",
         },
     }
@@ -611,6 +625,7 @@ def test_create_recordings_file_path_指定書式以外は例外(in_file_path, c
             "duration": 1800,
             "text": "Text",
             "ext_text": "Ext Text",
+            "genre": None,
         },
         "file_path": in_file_path,
         "file_size": 1_000_000_000,
@@ -836,6 +851,7 @@ def test_get_series_by_id(con, client):
                 "end_time": "2025-05-12T12:30:00+09:00",
                 "text": None,
                 "ext_text": None,
+                "genre": None,
                 "created_at": "2025-05-12T12:01:00+09:00",
                 "viewed_times": [
                     "2025-05-12T12:05:00+09:00",
@@ -858,3 +874,27 @@ def test_add_program_to_series(con, client):
         "program_id": 1,
     })
     assert response.status_code == 200
+
+def test_create_recording_with_genre_code(con, client):
+    response = client.post("/api/recordings", json={
+        "program": {
+            "event_id": 99,
+            "service_id": 909,
+            "name": "Genre Test Program",
+            "start_time": "2025-05-12T12:00:00+09:00",
+            "duration": 1800,
+            "text": "Text",
+            "ext_text": "Ext Text",
+            "genre": 112,  # 0x70 -> アニメ／特撮 - 国内アニメ
+        },
+        "file_path": "//server/recorded/genre_test1",
+        "file_size": 1_000_000_000,
+        "created_at": "2025-05-12T12:30:00+09:00",
+    })
+    assert response.status_code == 200
+    res_json = response.json()
+    assert res_json["program"]["genre"] == "アニメ／特撮 - 国内アニメ"
+
+    # DBに文字列として保存されているか確認
+    db_program = client.get(f"/api/programs/{res_json['program']['id']}").json()
+    assert db_program["genre"] == "アニメ／特撮 - 国内アニメ"

@@ -81,10 +81,19 @@ def views(request: Request,
         request=request, name="views.html", context={"views": views, "params": params})
 
 @app.get("/series", response_class=HTMLResponse)
-def views(request: Request,
+def series(request: Request,
           params: Annotated[api.SeriesQueryParams, Depends()],
           series_repo: SeriesRepositoryDep):
     series = api.get_series(params, series_repo)
 
     return templates.TemplateResponse(
         request=request, name="series.html", context={"series": series, "params": params})
+
+@app.get("/series/{id}", response_class=HTMLResponse)
+def series_by_id(request: Request,
+          id: int | str,
+          series_repo: SeriesRepositoryDep):
+    series_with_programs = api.get_series_by_id(id, series_repo)
+
+    return templates.TemplateResponse(
+        request=request, name="series_by_id.html", context={"series_with_programs": series_with_programs})

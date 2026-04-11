@@ -7,9 +7,9 @@ services:
     ports:
       - 8002:8001
     volumes:
-      - .:/app
+      - ./app:/app/app
       - ./docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
-      - ./db/tv.dev.db:/app/db/tv.db
+      - ./db/sqlite/schemas.sql:/app/db/sqlite/schemas.sql
       - ./serviceAccountKey.json:/etc/gcp/serviceAccountKey.json
     working_dir: /app
     command: docker-entrypoint.sh dev

@@ -48,6 +48,7 @@ SELECT
     programs.duration,
     programs.text,
     programs.ext_text,
+    programs.genre,
     programs.created_at,
     agg_views.viewed_times_json
 FROM programs
@@ -89,6 +90,7 @@ LIMIT @size OFFSET @offset
             p.duration,
             p.text,
             p.ext_text,
+            p.genre,
             p.created_at,
             agg_views.viewed_times_json
             FROM programs p
@@ -133,11 +135,11 @@ LIMIT @size OFFSET @offset
         self.client.query("""
             INSERT INTO programs (
                 id, event_id, service_id, name, start_time,
-                duration, text, ext_text, created_at
+                duration, text, ext_text, genre, created_at
             )
             VALUES (
                 @id, @event_id, @service_id, @name, @start_time,
-                @duration, @text, @ext_text, @created_at
+                @duration, @text, @ext_text, @genre, @created_at
             )
             """, job_config=self._make_query_job_config(query_parameters=[
                 bigquery.ScalarQueryParameter("id", "STRING", new_id),
@@ -148,6 +150,7 @@ LIMIT @size OFFSET @offset
                 bigquery.ScalarQueryParameter("duration", "INT64", program.duration),
                 bigquery.ScalarQueryParameter("text", "STRING", program.text),
                 bigquery.ScalarQueryParameter("ext_text", "STRING", program.ext_text),
+                bigquery.ScalarQueryParameter("genre", "STRING", program.genre),
                 bigquery.ScalarQueryParameter("created_at", "TIMESTAMP", created_at),
         ])).result()
 
@@ -221,6 +224,7 @@ class BigQueryRecordingRepository(BigQueryBaseRepository, RecordingRepository):
                 p.duration,
                 p.text,
                 p.ext_text,
+                p.genre,
                 p.created_at AS program_created_at
             FROM recordings r
             JOIN programs p ON p.id = r.program_id
@@ -270,6 +274,7 @@ class BigQueryRecordingRepository(BigQueryBaseRepository, RecordingRepository):
                 p.duration,
                 p.text,
                 p.ext_text,
+                p.genre,
                 p.created_at AS program_created_at
             FROM recordings r
             JOIN programs p ON p.id = r.program_id
