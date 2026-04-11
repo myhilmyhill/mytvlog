@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Series</h1>
+<h2>{{ series_with_programs.name }}</h2>
+<table>
+  <thead>
+    <tr>
+      <th>program_id
+      <th>program_name
+      <th>
+  <tbody>
+    {% for p in series_with_programs.programs %}
+    <tr>
+      <td><a href="{{ url_for('get_program', id=p.id) }}">{{ p.id }}</a>
+      <td>{{ p.name }}
+      <td><button command="show-modal" commandfor="edit-dialog" data-id="{{ p.id }}">:</button>
+    {% endfor %}
+</table>
+
+<dialog id="edit-dialog" closedby="any">
+  <script>
+    const series_id = Number('{{ series_with_programs.id }}')
+    document.getElementById('edit-dialog').addEventListener('command', (e) => {
+      if (e.command === 'show-modal') {
+        const invoker = e.source;
+        e.target.dataset.id = invoker.dataset.id;
+        e.target.querySelector('#name').value = '{{ series_with_programs.name }}';
+      }
+    })
+
+    async function edit(e) {
+      const id = e.target.closest('dialog').dataset.id;
+      await fetch(`/api/series/${series_id}/programs/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ series_name: document.getElementById('name').value })
+      })
+      location.reload()
+    }
+  </script>
+  <input type="text" id="name"><button onclick="edit(event)">Edit</button>
+</dialog>
+
+{% endblock %}

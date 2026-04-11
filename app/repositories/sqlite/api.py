@@ -429,6 +429,52 @@ class SQLiteSeriesRepository(SeriesRepository):
         """, (at, at, series_id))
         self.con.commit()
 
+    def update(self, series_id: int | str, name: str) -> None:
+        # Check if new name already exists
+        cur = self.con.execute("SELECT id FROM series WHERE name = ?", (name,))
+        row = cur.fetchone()
+
+        if row is not None:
+            new_series_id = row[0]
+            if str(new_series_id) == str(series_id):
+                return  # No change
+
+            # Merge
+            # 1. Move programs
+            self.con.execute("""
+                INSERT OR IGNORE INTO program_series (series_id, program_id)
+                SELECT ?, program_id FROM program_series WHERE series_id = ?
+            """, (new_series_id, series_id))
+            self.con.execute("DELETE FROM program_series WHERE series_id = ?", (series_id,))
+
+            # 2. Delete old series
+            self.con.execute("DELETE FROM series WHERE id = ?", (series_id,))
+        else:
+            # Simple rename
+            self.con.execute("""
+                UPDATE series SET name = ?, modified_at = ? WHERE id = ?
+            """, (name, datetime.now(), series_id))
+
+        self.con.commit()
+
+    def update_program_series(self, program_id: int | str, old_series_id: int | str, new_series_name: str) -> None:
+        cur = self.con.execute("SELECT id FROM series WHERE name = ?", (new_series_name,))
+        row = cur.fetchone()
+        new_series_id = row[0] if row is not None else None
+        if new_series_id == old_series_id:
+            return
+        elif new_series_id is None:
+            cur = self.con.execute("""
+                INSERT INTO series(name, created_at, modified_at)
+                VALUES(?, ?, ?)
+            """, (new_series_name, datetime.now(), datetime.now()))
+            new_series_id = cur.lastrowid
+
+        self.con.execute("""
+            UPDATE program_series SET series_id = ? WHERE program_id = ? AND series_id = ?
+            """, (new_series_id, program_id, old_series_id))
+        self.con.commit()
+
 class SQLiteDigestionRepository(DigestionRepository):
     def __init__(self, con: Connection):
         self.con = con

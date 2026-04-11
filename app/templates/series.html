@@ -17,13 +17,42 @@
     <tr>
       <th>id
       <th>name
+      <th>
+      <th>created_at
+      <th>modified_at
   <tbody>
     {% for s in series %}
     <tr>
-      <td>{{ s.id }}
+      <td><a href="{{ url_for('series_by_id', id=s.id) }}">{{ s.id }}</a>
       <td>{{ s.name }}
+      <td><button command="show-modal" commandfor="edit-dialog" data-id="{{ s.id }}" data-name="{{ s.name }}">:</button>
+      <td>{{ s.created_at }}
+      <td>{{ s.modified_at }}
     {% endfor %}
 </table>
+
+<dialog id="edit-dialog" closedby="any">
+  <script>
+    document.getElementById('edit-dialog').addEventListener('command', (e) => {
+      if (e.command === 'show-modal') {
+        const invoker = e.source;
+        e.target.dataset.id = invoker.dataset.id;
+        e.target.querySelector('#name').value = invoker.dataset.name;
+      }
+    });
+
+    async function edit(e) {
+      const id = e.target.closest('dialog').dataset.id;
+      await fetch(`/api/series/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: document.getElementById('name').value })
+      })
+      location.reload()
+    }
+  </script>
+  <input type="text" id="name"><button onclick="edit(event)">Edit</button>
+</dialog>
 
 <form>
   <input type="hidden" name="from_" value="{{ request.query_params.from_ }}">

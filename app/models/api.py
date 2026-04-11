@@ -144,6 +144,12 @@ class SeriesPost(BaseModel):
 class SeriesAddProgram(BaseModel):
     program_id: int | str
 
+class SeriesPatch(BaseModel):
+    name: str
+
+class SeriesProgramPatch(BaseModel):
+    series_name: str
+
 class Digestion(BaseModel):
     id: int | str
     name: str

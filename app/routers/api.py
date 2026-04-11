@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Path, Body, HTTPException, Response, status
 
-from ..models.api import ProgramQueryParams, ProgramGet, Series, SeriesAddProgram, SeriesPost, SeriesWithPrograms, ViewQueryParams, ViewGet, ViewPost, RecordingQueryParams, RecordingGet, RecordingPost, RecordingPatch, SeriesQueryParams, Digestion
+from ..models.api import ProgramQueryParams, ProgramGet, Series, SeriesAddProgram, SeriesPost, SeriesWithPrograms, ViewQueryParams, ViewGet, ViewPost, RecordingQueryParams, RecordingGet, RecordingPost, RecordingPatch, SeriesQueryParams, Digestion, SeriesPatch, SeriesProgramPatch
 from ..dependencies import DigestionRepositoryDep, ProgramRepositoryDep, RecordingRepositoryDep, ViewRepositoryDep, SeriesRepositoryDep
 from ..repositories.utils import extract_series_title
 from ..repositories.exceptions import InvalidDataError, NotFoundError, UnexpectedError
@@ -32,9 +32,11 @@ def get_views(params: Annotated[ViewQueryParams, Depends()], view_repo: ViewRepo
     return view_repo.search(params)
 
 @router.post("/api/views")
-def create_view(item: ViewPost, prog_repo: ProgramRepositoryDep, view_repo: ViewRepositoryDep):
+def create_view(item: ViewPost, prog_repo: ProgramRepositoryDep, view_repo: ViewRepositoryDep, series_repo: SeriesRepositoryDep):
     program_id = prog_repo.get_or_create(item.program, item.viewed_time, item.viewed_time)
     view_repo.create(program_id, item)
+    series_id = series_repo.get_or_create(extract_series_title(item.program.name), item.created_at)
+    series_repo.add_program(series_id, program_id, item.created_at)
     return
 
 @router.get("/api/recordings", response_model=list[RecordingGet])
@@ -96,10 +98,25 @@ def get_series_by_id(id: int | str, series_repo: SeriesRepositoryDep):
         raise HTTPException(status_code=404, detail=e.detail)
     return series
 
+@router.patch("/api/series/{id}", response_model=SeriesWithPrograms)
+def update_series(id: int | str, item: SeriesPatch, series_repo: SeriesRepositoryDep):
+    series_repo.update(id, item.name)
+    return series_repo.get_by_id(id)
+
 @router.post("/api/series/{id}/programs")
 def add_program_to_series(id: int | str, params: SeriesAddProgram, series_repo: SeriesRepositoryDep):
     try:
-        series_repo.add_program(id, params.program_id)
+        series_repo.add_program(id, params.program_id, datetime.now())
     except NotFoundError as e:
         raise HTTPException(status_code=404, detail=e.detail)
     return
+
+@router.patch("/api/series/{series_id}/programs/{program_id}", response_model=SeriesWithPrograms)
+def update_program_series(
+    series_id: int | str,
+    program_id: int | str,
+    item: SeriesProgramPatch,
+    series_repo: SeriesRepositoryDep
+):
+    series_repo.update_program_series(program_id, series_id, item.series_name)
+    return series_repo.get_by_id(series_id)
