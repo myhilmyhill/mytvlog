@@ -19,7 +19,7 @@
 
 <dialog id="edit-dialog" closedby="any">
   <script>
-    const series_id = Number('{{ series_with_programs.id }}')
+    const series_id = '{{ series_with_programs.id }}'
     document.getElementById('edit-dialog').addEventListener('command', (e) => {
       if (e.command === 'show-modal') {
         const invoker = e.source;

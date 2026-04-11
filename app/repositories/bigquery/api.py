@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 import re
 import uuid
 from google.cloud import bigquery
-from ...models.api import ProgramBase, ProgramQueryParams, ProgramGetBase, ProgramGet, ViewBase, ViewQueryParams, ViewGet, RecordingBase, RecordingQueryParams, RecordingGet, Series, Digestion
+from ...models.api import ProgramBase, ProgramQueryParams, ProgramGetBase, ProgramGet, ViewBase, ViewQueryParams, ViewGet, RecordingBase, RecordingQueryParams, RecordingGet, Series, SeriesQueryParams, SeriesWithPrograms, Digestion
 from ..interfaces import ProgramRepository, ViewRepository, RecordingRepository, SeriesRepository, DigestionRepository
 from ..exceptions import InvalidDataError, NotFoundError, UnexpectedError
 from ..utils import extract_model_fields
@@ -390,8 +390,207 @@ class BigQuerySeriesRepository(BigQueryBaseRepository, SeriesRepository):
     def __init__(self, project_id: str, dataset_id: str):
         super().__init__(project_id, dataset_id)
 
-    def search(self) -> list[Series]:
-        pass
+    def search(self, params: SeriesQueryParams) -> list[Series]:
+        query_params = {
+            "name": params.name or '',
+            "size": params.size,
+            "offset": (params.page - 1) * params.size,
+        }
+        job = self.client.query("""
+            SELECT
+                id,
+                name,
+                created_at,
+                modified_at
+            FROM series
+            WHERE name LIKE CONCAT('%', @name, '%')
+            ORDER BY modified_at DESC
+            LIMIT @size OFFSET @offset
+            """,
+            job_config=self._make_query_job_config(query_parameters=[
+                bigquery.ScalarQueryParameter("name", "STRING", query_params["name"]),
+                bigquery.ScalarQueryParameter("size", "INT64", query_params["size"]),
+                bigquery.ScalarQueryParameter("offset", "INT64", query_params["offset"]),
+        ]))
+        rows = job.result()
+        return [Series(**row) for row in rows]
+
+    def get_by_id(self, id: str) -> SeriesWithPrograms | None:
+        job = self.client.query("""
+            SELECT
+                id,
+                name,
+                created_at,
+                modified_at
+            FROM series
+            WHERE id = @id
+            """,
+            job_config=self._make_query_job_config(query_parameters=[
+                bigquery.ScalarQueryParameter("id", "STRING", id)
+        ]))
+        series_row = next(job.result(), None)
+        if series_row is None:
+            return None
+        
+        series = Series(**series_row)
+
+        job = self.client.query("""
+            WITH agg_views AS (
+                SELECT
+                    program_id,
+                    TO_JSON_STRING(ARRAY_AGG(viewed_time)) AS viewed_times_json
+                FROM views
+                GROUP BY program_id
+            )
+            SELECT
+                p.id,
+                p.event_id,
+                p.service_id,
+                p.name,
+                p.start_time,
+                p.duration,
+                p.text,
+                p.ext_text,
+                p.genre,
+                p.created_at,
+                av.viewed_times_json
+            FROM programs p
+            LEFT JOIN agg_views av ON av.program_id = p.id
+            INNER JOIN program_series ps ON ps.program_id = p.id
+            WHERE ps.series_id = @id
+            ORDER BY p.start_time DESC
+            """,
+            job_config=self._make_query_job_config(query_parameters=[
+                bigquery.ScalarQueryParameter("id", "STRING", id)
+        ]))
+        rows = job.result()
+        programs = [ProgramGet(**row) for row in rows]
+
+        return SeriesWithPrograms(
+            **series.model_dump(),
+            programs=programs,
+        )
+
+    def get_or_create(self, name: str, created_at: datetime) -> str:
+        job = self.client.query("""
+            SELECT id FROM series WHERE name = @name
+            """, job_config=self._make_query_job_config(query_parameters=[
+                bigquery.ScalarQueryParameter("name", "STRING", name)
+        ]))
+        row = next(job.result(), None)
+        if row:
+            return row["id"]
+
+        new_id = str(uuid.uuid4())
+        self.client.query("""
+            INSERT INTO series (id, name, created_at, modified_at)
+            VALUES (@id, @name, @created_at, @modified_at)
+            """, job_config=self._make_query_job_config(query_parameters=[
+                bigquery.ScalarQueryParameter("id", "STRING", new_id),
+                bigquery.ScalarQueryParameter("name", "STRING", name),
+                bigquery.ScalarQueryParameter("created_at", "TIMESTAMP", created_at),
+                bigquery.ScalarQueryParameter("modified_at", "TIMESTAMP", created_at),
+        ])).result()
+
+        return new_id
+
+    def add_program(self, series_id: str, program_id: str, at: datetime) -> None:
+        # Check if program already in series
+        job = self.client.query("""
+            SELECT 1 FROM program_series WHERE series_id = @series_id AND program_id = @program_id
+            """, job_config=self._make_query_job_config(query_parameters=[
+                bigquery.ScalarQueryParameter("series_id", "STRING", series_id),
+                bigquery.ScalarQueryParameter("program_id", "STRING", program_id),
+        ]))
+        if next(job.result(), None):
+            return
+
+        # Insert link
+        self.client.query("""
+            INSERT INTO program_series (series_id, program_id)
+            VALUES (@series_id, @program_id)
+            """, job_config=self._make_query_job_config(query_parameters=[
+                bigquery.ScalarQueryParameter("series_id", "STRING", series_id),
+                bigquery.ScalarQueryParameter("program_id", "STRING", program_id),
+        ])).result()
+
+        # Update modified_at
+        self.client.query("""
+            UPDATE series
+            SET modified_at = @at
+            WHERE id = @series_id AND modified_at < @at
+            """, job_config=self._make_query_job_config(query_parameters=[
+                bigquery.ScalarQueryParameter("at", "TIMESTAMP", at),
+                bigquery.ScalarQueryParameter("series_id", "STRING", series_id),
+        ])).result()
+
+    def update(self, id: str, name: str) -> None:
+        # Check if new name already exists (for merge)
+        job = self.client.query("""
+            SELECT id FROM series WHERE name = @name
+            """, job_config=self._make_query_job_config(query_parameters=[
+                bigquery.ScalarQueryParameter("name", "STRING", name)
+        ]))
+        row = next(job.result(), None)
+
+        if row:
+            new_series_id = row["id"]
+            if str(new_series_id) == str(id):
+                return
+
+            # Merge
+            # 1. Move programs (avoid duplicates)
+            self.client.query("""
+                MERGE INTO program_series ps
+                USING (SELECT @new_series_id as new_series_id, program_id FROM program_series WHERE series_id = @old_series_id) src
+                ON ps.series_id = src.new_series_id AND ps.program_id = src.program_id
+                WHEN NOT MATCHED THEN
+                    INSERT (series_id, program_id) VALUES (src.new_series_id, src.program_id)
+                """, job_config=self._make_query_job_config(query_parameters=[
+                    bigquery.ScalarQueryParameter("old_series_id", "STRING", id),
+                    bigquery.ScalarQueryParameter("new_series_id", "STRING", new_series_id),
+            ])).result()
+
+            self.client.query("""
+                DELETE FROM program_series WHERE series_id = @old_series_id
+                """, job_config=self._make_query_job_config(query_parameters=[
+                    bigquery.ScalarQueryParameter("old_series_id", "STRING", id),
+            ])).result()
+
+            # 2. Delete old series
+            self.client.query("""
+                DELETE FROM series WHERE id = @id
+                """, job_config=self._make_query_job_config(query_parameters=[
+                    bigquery.ScalarQueryParameter("id", "STRING", id),
+            ])).result()
+        else:
+            # Rename
+            self.client.query("""
+                UPDATE series
+                SET name = @name, modified_at = @now
+                WHERE id = @id
+                """, job_config=self._make_query_job_config(query_parameters=[
+                    bigquery.ScalarQueryParameter("name", "STRING", name),
+                    bigquery.ScalarQueryParameter("now", "TIMESTAMP", datetime.now()),
+                    bigquery.ScalarQueryParameter("id", "STRING", id),
+            ])).result()
+
+    def update_program_series(self, program_id: str, old_series_id: str, new_series_name: str) -> None:
+        # Find or create new series
+        new_series_id = self.get_or_create(new_series_name, datetime.now())
+        
+        if new_series_id == old_series_id:
+            return
+
+        self.client.query("""
+            UPDATE program_series
+            SET series_id = @new_series_id
+            WHERE program_id = @program_id AND series_id = @old_series_id
+            """, job_config=self._make_query_job_config(query_parameters=[
+                bigquery.ScalarQueryParameter("new_series_id", "STRING", new_series_id),
+                bigquery.ScalarQueryParameter("program_id", "STRING", program_id),
+                bigquery.ScalarQueryParameter("old_series_id", "STRING", old_series_id),
+        ])).result()
 
 class BigQueryDigestionRepository(BigQueryBaseRepository, DigestionRepository):
     def __init__(self, project_id: str, dataset_id: str):
