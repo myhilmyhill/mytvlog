@@ -164,6 +164,12 @@ class SeriesPatch(BaseModel):
 class SeriesProgramPatch(BaseModel):
     series_name: str
 
+class DigestionQueryParams(BaseModel):
+    model_config = {"slots": True}
+    name: str = Query(default="")
+    page: int = Query(default=1)
+    size: int = Query(default=100)
+
 class Digestion(BaseModel):
     model_config = {"slots": True}
     id: int | str

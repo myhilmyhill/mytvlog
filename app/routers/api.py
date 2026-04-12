@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Path, Body, HTTPException, Response, status
 
-from ..models.api import ProgramQueryParams, ProgramGet, Series, SeriesAddProgram, SeriesPost, SeriesWithPrograms, ViewQueryParams, ViewGet, ViewPost, RecordingQueryParams, RecordingGet, RecordingPost, RecordingPatch, SeriesQueryParams, Digestion, SeriesPatch, SeriesProgramPatch
+from ..models.api import ProgramQueryParams, ProgramGet, Series, SeriesAddProgram, SeriesPost, SeriesWithPrograms, ViewQueryParams, ViewGet, ViewPost, RecordingQueryParams, RecordingGet, RecordingPost, RecordingPatch, SeriesQueryParams, Digestion, SeriesPatch, SeriesProgramPatch, DigestionQueryParams
 from ..dependencies import DigestionRepositoryDep, ProgramRepositoryDep, RecordingRepositoryDep, ViewRepositoryDep, SeriesRepositoryDep
 from ..repositories.utils import extract_series_title, extract_series_title_llm
 from ..repositories.exceptions import InvalidDataError, NotFoundError, UnexpectedError
@@ -87,8 +87,8 @@ def patch_recording(
         raise HTTPException(status_code=500, detail=e.detail)
 
 @router.get("/api/digestions", response_model=list[Digestion])
-def get_digestions(dig_repo: DigestionRepositoryDep):
-    return dig_repo.list_digestions()
+def get_digestions(params: Annotated[DigestionQueryParams, Depends()], dig_repo: DigestionRepositoryDep):
+    return dig_repo.list_digestions(params)
 
 @router.get("/api/series", response_model=list[Series])
 def get_series(params: Annotated[SeriesQueryParams, Depends()], series_repo: SeriesRepositoryDep):

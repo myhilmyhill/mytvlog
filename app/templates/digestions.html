@@ -43,6 +43,13 @@
 </script>
 
 <h1>Digestions</h1>
+<form>
+  <fieldset>
+    <legend>絞り込み</legend>
+    <label>Name<input type="text" name="name" value="{{ params.name }}"></label>
+    <button type="submit">Search</button>
+  </fieldset>
+</form>
 <table>
   <thead>
     <tr>
@@ -66,6 +73,12 @@
       <td>{{ d.start_time.strftime("%Y/%m/%d(%a) %H:%M") }}
 {% endfor %}
 </table>
+
+<form>
+  <input type="hidden" name="name" value="{{ params.name }}">
+  <input type="hidden" name="page" value="{{ params.page + 1 }}">
+  <button type="submit">次</button>
+</form>
 
 <dialog id="op" closedby="any">
   <h2 id="name"></h2>

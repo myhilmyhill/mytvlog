@@ -37,16 +37,18 @@ def show_auth_page(request: Request):
         })
 
 @app.get("/digestions", response_class=HTMLResponse)
-def digestions(request: Request, dig_repo: DigestionRepositoryDep):
+def digestions(request: Request,
+               params: Annotated[api.DigestionQueryParams, Depends()],
+               dig_repo: DigestionRepositoryDep):
     digestions = [{
         **d.model_dump(),
         "start_time_timestamp": int(d.start_time.timestamp()),
         "end_time_timestamp": int(d.end_time.timestamp()),
         "viewed_times_timestamp": [int(t.timestamp()) for t in d.viewed_times],
-    } for d in api.get_digestions(dig_repo)]
+    } for d in api.get_digestions(params, dig_repo)]
 
     return templates.TemplateResponse(
-        request=request, name="digestions.html", context={"digestions": digestions, "dst_root": dst_root})
+        request=request, name="digestions.html", context={"digestions": digestions, "dst_root": dst_root, "params": params})
 
 @app.get("/programs", response_class=HTMLResponse)
 def programs(request: Request,

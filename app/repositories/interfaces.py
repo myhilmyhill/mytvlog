@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
-from ..models.api import ProgramBase, ProgramQueryParams, ProgramGet, ViewBase, ViewQueryParams, ViewGet, RecordingBase, RecordingQueryParams, RecordingGet, Series, SeriesWithPrograms, SeriesQueryParams, Digestion
+from ..models.api import ProgramBase, ProgramQueryParams, ProgramGet, ViewBase, ViewQueryParams, ViewGet, RecordingBase, RecordingQueryParams, RecordingGet, Series, SeriesWithPrograms, SeriesQueryParams, Digestion, DigestionQueryParams
 
 class ProgramRepository(ABC):
     @abstractmethod
@@ -53,4 +53,4 @@ class SeriesRepository(ABC):
 
 class DigestionRepository(ABC):
     @abstractmethod
-    def list_digestions(self) -> list[Digestion]: ...
+    def list_digestions(self, params: DigestionQueryParams) -> list[Digestion]: ...

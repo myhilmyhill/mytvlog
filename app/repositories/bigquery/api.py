@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 import re
 import uuid
 from google.cloud import bigquery
-from ...models.api import ProgramBase, ProgramQueryParams, ProgramGetBase, ProgramGet, ViewBase, ViewQueryParams, ViewGet, RecordingBase, RecordingQueryParams, RecordingGet, Series, SeriesQueryParams, SeriesWithPrograms, Digestion
+from ...models.api import ProgramBase, ProgramQueryParams, ProgramGetBase, ProgramGet, ViewBase, ViewQueryParams, ViewGet, RecordingBase, RecordingQueryParams, RecordingGet, Series, SeriesQueryParams, SeriesWithPrograms, Digestion, DigestionQueryParams
 from ..interfaces import ProgramRepository, ViewRepository, RecordingRepository, SeriesRepository, DigestionRepository
 from ..exceptions import InvalidDataError, NotFoundError, UnexpectedError
 from ..utils import extract_model_fields
@@ -575,7 +575,7 @@ class BigQueryDigestionRepository(BigQueryBaseRepository, DigestionRepository):
     def __init__(self, client: bigquery.Client, dataset_id: str):
         super().__init__(client, dataset_id)
         
-    def list_digestions(self) -> list[Digestion]:
+    def list_digestions(self, params: DigestionQueryParams) -> list[Digestion]:
         rows = self.client.query("""
             SELECT
                 p.id,
@@ -589,6 +589,12 @@ class BigQueryDigestionRepository(BigQueryBaseRepository, DigestionRepository):
                 SELECT 1 FROM recordings r WHERE r.program_id = p.id AND r.watched_at IS NULL AND r.deleted_at IS NULL
             )
               AND COALESCE((SELECT COUNT(viewed_time) * 5 * 60 FROM views WHERE views.program_id = p.id), 0) < p.duration * 0.8
-            ORDER BY p.start_time
-            """, job_config=self._make_query_job_config()).result()
+              AND (@name = '' OR p.name LIKE CONCAT('%', @name, '%'))
+            ORDER BY p.start_time DESC
+            LIMIT @size OFFSET @offset
+            """, job_config=self._make_query_job_config(query_parameters=[
+                bigquery.ScalarQueryParameter("name", "STRING", params.name or ''),
+                bigquery.ScalarQueryParameter("size", "INT64", params.size),
+                bigquery.ScalarQueryParameter("offset", "INT64", (params.page - 1) * params.size),
+        ])).result()
         return [Digestion(**dict(row)) for row in rows]

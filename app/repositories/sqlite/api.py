@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from datetime import datetime, timedelta
 from sqlite3 import Connection
 import re
-from ...models.api import ProgramBase, ProgramQueryParams, ProgramGetBase, ProgramGet, ViewBase, ViewQueryParams, ViewGet, RecordingBase, RecordingQueryParams, RecordingGet, Series, SeriesQueryParams, SeriesWithPrograms, Digestion
+from ...models.api import ProgramBase, ProgramQueryParams, ProgramGetBase, ProgramGet, ViewBase, ViewQueryParams, ViewGet, RecordingBase, RecordingQueryParams, RecordingGet, Series, SeriesQueryParams, SeriesWithPrograms, Digestion, DigestionQueryParams
 from ..interfaces import ProgramRepository, ViewRepository, RecordingRepository, SeriesRepository, DigestionRepository
 from ..exceptions import NotFoundError, InvalidDataError, UnexpectedError
 from ..utils import extract_model_fields
@@ -453,7 +453,7 @@ class SQLiteDigestionRepository(DigestionRepository):
     def __init__(self, con: Connection):
         self.con = con
 
-    def list_digestions(self) -> list[Digestion]:
+    def list_digestions(self, params: DigestionQueryParams) -> list[Digestion]:
         cur = self.con.execute("""
             SELECT
                 programs.id
@@ -470,7 +470,13 @@ class SQLiteDigestionRepository(DigestionRepository):
                     WHERE program_id = programs.id AND watched_at IS NULL AND deleted_at IS NULL
                     )
               AND COALESCE((SELECT COUNT(viewed_time) * 5 * 60 FROM views WHERE views.program_id = programs.id), 0) < programs.duration * 0.8
+              AND (:name = '' OR programs.name LIKE '%' || :name || '%')
             ORDER BY programs.start_time
-        """)
+            LIMIT :size OFFSET :offset
+        """, {
+            "name": params.name,
+            "size": params.size,
+            "offset": (params.page - 1) * params.size,
+        })
         rows = cur.fetchall()
         return [Digestion(**row) for row in rows]
