@@ -222,13 +222,16 @@ class BigQueryRecordingRepository(BigQueryBaseRepository, RecordingRepository):
                 AND (@deleted = TRUE OR r.deleted_at IS NULL)
                 AND (@file_folder = '' OR REGEXP_CONTAINS(r.file_path, CONCAT('^//[^/]+/', @file_folder, '/.*$')))
             ORDER BY p.start_time DESC, r.created_at
+            LIMIT @size OFFSET @offset
             """, job_config=self._make_query_job_config(query_parameters=[
                 bigquery.ScalarQueryParameter("program_id", "STRING", params.program_id),
                 bigquery.ScalarQueryParameter("from", "TIMESTAMP", params.from_ or None),
                 bigquery.ScalarQueryParameter("to", "TIMESTAMP", params.to + timedelta(days=1) if params.to else None),
                 bigquery.ScalarQueryParameter("watched", "BOOL", bool(params.watched)),
                 bigquery.ScalarQueryParameter("deleted", "BOOL", bool(params.deleted)),
-                bigquery.ScalarQueryParameter("file_folder", "STRING", params.file_folder or '')
+                bigquery.ScalarQueryParameter("file_folder", "STRING", params.file_folder or ''),
+                bigquery.ScalarQueryParameter("size", "INT64", params.size),
+                bigquery.ScalarQueryParameter("offset", "INT64", (params.page - 1) * params.size),
         ]))
         rows = job.result()
         return [
@@ -401,7 +404,7 @@ class BigQuerySeriesRepository(BigQueryBaseRepository, SeriesRepository):
         rows = job.result()
         return [Series(**row) for row in rows]
 
-    def get_by_id(self, id: str) -> SeriesWithPrograms | None:
+    def get_by_id(self, id: str, page: int = 1, size: int = 100) -> SeriesWithPrograms | None:
         job = self.client.query("""
             SELECT
                 id,
@@ -438,9 +441,12 @@ class BigQuerySeriesRepository(BigQueryBaseRepository, SeriesRepository):
             INNER JOIN program_series ps ON ps.program_id = p.id
             WHERE ps.series_id = @id
             ORDER BY p.start_time DESC
+            LIMIT @size OFFSET @offset
             """,
             job_config=self._make_query_job_config(query_parameters=[
-                bigquery.ScalarQueryParameter("id", "STRING", id)
+                bigquery.ScalarQueryParameter("id", "STRING", id),
+                bigquery.ScalarQueryParameter("size", "INT64", size),
+                bigquery.ScalarQueryParameter("offset", "INT64", (page - 1) * size),
         ]))
         rows = job.result()
         programs = [ProgramGet(**row) for row in rows]

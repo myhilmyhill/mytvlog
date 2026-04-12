@@ -94,6 +94,8 @@ class RecordingQueryParams(BaseModel):
     watched: bool | Literal["on"] = Query(default=False)
     deleted: bool | Literal["on"] = Query(default=False)
     file_folder: str = Query(default="")
+    page: int = Query(default=1)
+    size: int = Query(default=100)
 
 class RecordingBase(BaseModel):
     model_config = {"slots": True}

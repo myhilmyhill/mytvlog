@@ -176,6 +176,7 @@ class SQLiteRecordingRepository(RecordingRepository):
             AND (:deleted = TRUE OR recordings.deleted_at IS NULL)
             AND (:file_folder = '' OR recordings.file_path REGEXP '^//[^/]+/' || :file_folder || '/.*$')
             ORDER BY programs.start_time DESC, recordings.created_at
+            LIMIT :size OFFSET :offset
         """, {
             "program_id": params.program_id,
             "from": params.from_ if params.from_ else None,
@@ -183,6 +184,8 @@ class SQLiteRecordingRepository(RecordingRepository):
             "watched": bool(params.watched),
             "deleted": bool(params.deleted),
             "file_folder": params.file_folder,
+            "size": params.size,
+            "offset": (params.page - 1) * params.size,
             })
         rows = cur.fetchall()
         return [
@@ -346,7 +349,7 @@ class SQLiteSeriesRepository(SeriesRepository):
         self.con.commit()
         return cur.lastrowid
     
-    def get_by_id(self, id: int | str) -> SeriesWithPrograms:
+    def get_by_id(self, id: int | str, page: int = 1, size: int = 100) -> SeriesWithPrograms:
         cur = self.con.execute("""
             SELECT
                 id
@@ -379,7 +382,8 @@ class SQLiteSeriesRepository(SeriesRepository):
             INNER JOIN program_series ps ON ps.program_id = p.id
             WHERE ps.series_id = ?
             ORDER BY p.start_time DESC
-        """, (id,))
+            LIMIT ? OFFSET ?
+        """, (id, size, (page - 1) * size))
         rows = cur.fetchall()
         programs = [ProgramGet(**r) for r in rows]
         return SeriesWithPrograms(

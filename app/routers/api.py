@@ -100,9 +100,9 @@ def create_series(params: Annotated[SeriesPost, Body()], series_repo: SeriesRepo
     return series_repo.get_by_id(id_)
 
 @router.get("/api/series/{id}", response_model=SeriesWithPrograms)
-def get_series_by_id(id: int | str, series_repo: SeriesRepositoryDep):
+def get_series_by_id(id: int | str, series_repo: SeriesRepositoryDep, page: int = 1, size: int = 100):
     try:
-        series = series_repo.get_by_id(id)
+        series = series_repo.get_by_id(id, page=page, size=size)
     except NotFoundError as e:
         raise HTTPException(status_code=404, detail=e.detail)
     return series

@@ -68,15 +68,16 @@ def programs(request: Request,
 def program(request: Request,
             id: int | str,
             prog_repo: ProgramRepositoryDep):
-    program = {
-        **api.get_program(id, prog_repo).model_dump(),
-        "start_time_timestamp": int(api.get_program(id, prog_repo).start_time.timestamp()),
-        "end_time_timestamp": int(api.get_program(id, prog_repo).end_time.timestamp()),
-        "viewed_times_timestamp": [int(t.timestamp()) for t in api.get_program(id, prog_repo).viewed_times],
+    p = api.get_program(id, prog_repo)
+    program_context = {
+        **p.model_dump(),
+        "start_time_timestamp": int(p.start_time.timestamp()),
+        "end_time_timestamp": int(p.end_time.timestamp()),
+        "viewed_times_timestamp": [int(t.timestamp()) for t in p.viewed_times],
     }
 
     return templates.TemplateResponse(
-        request=request, name="program.html", context={"program": program})
+        request=request, name="program.html", context={"program": program_context})
 
 @app.get("/recordings", response_class=HTMLResponse)
 def recordings(request: Request,
@@ -117,8 +118,10 @@ def series(request: Request,
 @app.get("/series/{id}", response_class=HTMLResponse)
 def series_by_id(request: Request,
           id: int | str,
-          series_repo: SeriesRepositoryDep):
-    series_with_programs = api.get_series_by_id(id, series_repo)
+          series_repo: SeriesRepositoryDep,
+          page: int = 1,
+          size: int = 100):
+    series_with_programs = api.get_series_by_id(id, series_repo, page=page, size=size)
 
     return templates.TemplateResponse(
         request=request, name="series_by_id.html", context={"series_with_programs": series_with_programs})
