@@ -66,15 +66,16 @@ def poll_once():
                 "service_id": status["current_event_service_id"],
                 "name": status["current_event_name"],
                 "start_time": status["current_event_start_time"],
-                "duration": status["current_event_duration"]
+                "duration": status["current_event_duration"],
+                "genre": status["current_content_nibble"],
             },
             "viewed_time": status["tot"]
         }
 
-        try:
-            post_view(f"http://mytvlog:{PORT}/api/views", id_token, body)
-        except Exception as e:
-            print(f"Local post error: {type(e).__name__}: {e}", flush=True)
+#        try:
+#            post_view(f"http://mytvlog:{PORT}/api/views", id_token, body)
+#        except Exception as e:
+#            print(f"Local post error: {type(e).__name__}: {e}", flush=True)
         try:
             post_view(f"{REMOTE_URL}/api/views", id_token, body)
         except Exception as e:
