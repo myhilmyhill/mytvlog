@@ -1,6 +1,9 @@
 import unicodedata
 from pydantic import BaseModel
 import re
+import json
+from google import genai
+from google.genai import types
 
 def extract_model_fields(model: type[BaseModel], row: dict, aliases: dict[str, str] = None) -> dict:
     aliases = aliases or {}
@@ -11,6 +14,34 @@ def extract_model_fields(model: type[BaseModel], row: dict, aliases: dict[str, s
         if source_key in keys:
             result[field_name] = row[source_key]
     return result
+
+async def extract_series_title_llm(raw: str, api_key: str) -> str:
+    client = genai.Client(api_key=api_key).aio
+    response = await client.models.generate_content(
+        model='gemini-2.5-flash',
+        contents=f'''
+        命令:
+        与えられた番組表の文字列から「純粋な番組名」のみを抽出してください。
+        【除外すべきノイズの定義】
+            話数・回数: ＃10、(96)、第1夜 などの表記。
+            放送枠・ジャンル: 【連続テレビ小説】、【ヌマニメーション】、日5、AnichU などの枠名。
+            番組付随記号: [字]、[デ]、[再]、★、▽ などの記号。
+            サブタイトル・詳細: 「」内や ～ 以降に続くエピソード名、および対戦カード（「日本」対「韓国」など）。
+            宣伝文句: 記号以降に続く解説テキスト（例：★大人気ゲームを〜）。
+        【例外ルール】
+            **【推しの子】**のように、タイトル自体に【】が含まれる場合は、それを維持すること。
+            世界選手権2025のように、年号がタイトルの一部である場合は維持すること。
+        出力形式:
+        JSON形式 {{"title": "抽出結果"}} で出力してください。
+
+        対象文字列: {raw}
+        ''',
+        config=types.GenerateContentConfig(
+            response_mime_type='application/json'
+        )
+    )
+    data = json.loads(response.text)
+    return data.get("title")
 
 def extract_series_title(raw: str) -> str:
     """

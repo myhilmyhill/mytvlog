@@ -1,11 +1,12 @@
 import re
+import os
 from datetime import datetime
 from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Path, Body, HTTPException, Response, status
 
 from ..models.api import ProgramQueryParams, ProgramGet, Series, SeriesAddProgram, SeriesPost, SeriesWithPrograms, ViewQueryParams, ViewGet, ViewPost, RecordingQueryParams, RecordingGet, RecordingPost, RecordingPatch, SeriesQueryParams, Digestion, SeriesPatch, SeriesProgramPatch
 from ..dependencies import DigestionRepositoryDep, ProgramRepositoryDep, RecordingRepositoryDep, ViewRepositoryDep, SeriesRepositoryDep
-from ..repositories.utils import extract_series_title
+from ..repositories.utils import extract_series_title, extract_series_title_llm
 from ..repositories.exceptions import InvalidDataError, NotFoundError, UnexpectedError
 
 router = APIRouter()
@@ -46,14 +47,24 @@ def get_recording(id: int | str, rec_repo: RecordingRepositoryDep):
     return rec_repo.get_by_id(id)
 
 @router.post("/api/recordings", response_model=RecordingGet)
-def create_recording(item: Annotated[RecordingPost, Body()], prog_repo: ProgramRepositoryDep, rec_repo: RecordingRepositoryDep, series_repo: SeriesRepositoryDep):
+async def create_recording(item: Annotated[RecordingPost, Body()], prog_repo: ProgramRepositoryDep, rec_repo: RecordingRepositoryDep, series_repo: SeriesRepositoryDep):
     if not re.fullmatch("//[^/]+/[^/]+/.*", item.file_path):
         raise HTTPException(status_code=400, detail="Invalid file_path; should be '//server/folder/to/file'")
 
     program_id = prog_repo.get_or_create(item.program, item.created_at, item.created_at)
     id_ = rec_repo.create(item, program_id)
 
-    series_id = series_repo.get_or_create(extract_series_title(item.program.name), item.created_at)
+    try:
+        series_name = await extract_series_title_llm(
+            item.program.name,
+            api_key=os.getenv("GEMINI_API_KEY")
+        )
+    except Exception as e:
+        print(f"LLM extraction failed: {e}")
+        series_name = extract_series_title(item.program.name)
+
+    print(f"Extracted series name: {series_name}")
+    series_id = series_repo.get_or_create(series_name, item.created_at)
     series_repo.add_program(series_id, program_id, item.created_at)
 
     return rec_repo.get_by_id(id_)
