@@ -17,8 +17,11 @@ async def extract_series_title_llm(raw: str, api_key: str) -> str:
     import httpx
     import json
     
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
-    
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent"
+    headers = {
+        "Content-Type": "application/json",
+        "X-goog-api-key": api_key,
+    }
     prompt = f'''
         命令:
         与えられた番組表の文字列から「純粋な番組名」のみを抽出してください。
@@ -36,20 +39,16 @@ async def extract_series_title_llm(raw: str, api_key: str) -> str:
 
         対象文字列: {raw}
     '''
-    
     payload = {
         "contents": [{
             "parts": [{
                 "text": prompt
             }]
-        }],
-        "generationConfig": {
-            "responseMimeType": "application/json"
-        }
+        }]
     }
     
     async with httpx.AsyncClient() as client:
-        response = await client.post(url, json=payload, timeout=30.0)
+        response = await client.post(url, headers=headers, json=payload, timeout=120.0)
         response.raise_for_status()
         data = response.json()
         
