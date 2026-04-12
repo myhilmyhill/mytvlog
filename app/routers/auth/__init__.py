@@ -1,15 +1,14 @@
 from fastapi import APIRouter, Body, Response, HTTPException
 from pydantic import BaseModel
-import firebase_admin
-from firebase_admin import auth
-from datetime import timedelta
+from ...firebase import initialize_firebase
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 SESSION_COOKIE_NAME = "session"
 
-if not firebase_admin._apps:
-    firebase_admin.initialize_app()
+initialize_firebase()
+from firebase_admin import auth
+from datetime import timedelta
 
 class LoginRequest(BaseModel):
     id_token: str

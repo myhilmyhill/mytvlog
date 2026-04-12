@@ -1,6 +1,5 @@
 import time
 from pydantic import BaseModel
-from rapidfuzz import fuzz
 from datetime import datetime, timedelta
 from sqlite3 import Connection
 import re
@@ -15,20 +14,6 @@ class SQLiteProgramRepository(ProgramRepository):
 
     def search(self, params: ProgramQueryParams) -> list[ProgramGet]:
         cur = self.con.execute("""
-            WITH agg_views AS (
-                SELECT
-                    program_id
-                , json_group_array(viewed_time) AS viewed_times_json
-                FROM views
-                GROUP BY program_id
-            )
-            , agg_recordings AS (
-                SELECT
-                    program_id
-                , json_group_array(id) AS recordings_json
-                FROM recordings
-                GROUP BY program_id
-            )
             SELECT
                 id
             , event_id
@@ -40,11 +25,9 @@ class SQLiteProgramRepository(ProgramRepository):
             , ext_text
             , genre
             , created_at AS "created_at [timestamp]"
-            , agg_views.viewed_times_json
-            , agg_recordings.recordings_json
+            , (SELECT json_group_array(viewed_time) FROM views WHERE views.program_id = programs.id) AS viewed_times_json
+            , (SELECT json_group_array(id) FROM recordings WHERE recordings.program_id = programs.id) AS recordings_json
             FROM programs
-            LEFT OUTER JOIN agg_views ON agg_views.program_id = programs.id
-            LEFT OUTER JOIN agg_recordings ON agg_recordings.program_id = programs.id
             WHERE
                 TRUE
             AND (:from IS NULL OR :from <= programs.start_time)
@@ -66,20 +49,6 @@ class SQLiteProgramRepository(ProgramRepository):
     def get_by_id(self, id: int) -> ProgramGet | None:
         cur = self.con.cursor()
         cur.execute("""
-            WITH agg_views AS (
-                SELECT
-                    program_id
-                , json_group_array(viewed_time) AS viewed_times_json
-                FROM views
-                GROUP BY program_id
-            )
-            , agg_recordings AS (
-                SELECT
-                    program_id
-                , json_group_array(id) AS recordings_json
-                FROM recordings
-                GROUP BY program_id
-            )
             SELECT
                 id
             , event_id
@@ -91,11 +60,9 @@ class SQLiteProgramRepository(ProgramRepository):
             , ext_text
             , genre
             , created_at AS "created_at [timestamp]"
-            , agg_views.viewed_times_json
-            , agg_recordings.recordings_json
+            , (SELECT json_group_array(viewed_time) FROM views WHERE views.program_id = programs.id) AS viewed_times_json
+            , (SELECT json_group_array(id) FROM recordings WHERE recordings.program_id = programs.id) AS recordings_json
             FROM programs
-            LEFT OUTER JOIN agg_views ON agg_views.program_id = programs.id
-            LEFT OUTER JOIN agg_recordings ON agg_recordings.program_id = programs.id
             WHERE id = ?
         """, (id,))
         row = cur.fetchone()
@@ -395,20 +362,6 @@ class SQLiteSeriesRepository(SeriesRepository):
         series = Series(**row)
 
         cur = self.con.execute("""
-            WITH agg_views AS (
-                SELECT
-                    program_id
-                , json_group_array(viewed_time) AS viewed_times_json
-                FROM views
-                GROUP BY program_id
-            )
-            , agg_recordings AS (
-                SELECT
-                    program_id
-                , json_group_array(id) AS recordings_json
-                FROM recordings
-                GROUP BY program_id
-            )
             SELECT
               p.id
             , p.event_id
@@ -420,11 +373,9 @@ class SQLiteSeriesRepository(SeriesRepository):
             , p.ext_text
             , p.genre
             , p.created_at AS "created_at [timestamp]"
-            , av.viewed_times_json
-            , ar.recordings_json
+            , (SELECT json_group_array(viewed_time) FROM views WHERE views.program_id = p.id) AS viewed_times_json
+            , (SELECT json_group_array(id) FROM recordings WHERE recordings.program_id = p.id) AS recordings_json
             FROM programs p
-            LEFT OUTER JOIN agg_views av ON av.program_id = p.id
-            LEFT OUTER JOIN agg_recordings ar ON ar.program_id = p.id
             INNER JOIN program_series ps ON ps.program_id = p.id
             WHERE ps.series_id = ?
             ORDER BY p.start_time DESC
@@ -504,30 +455,21 @@ class SQLiteDigestionRepository(DigestionRepository):
 
     def list_digestions(self) -> list[Digestion]:
         cur = self.con.execute("""
-            WITH agg_views AS (
-                SELECT
-                    program_id
-                , json_group_array(viewed_time) AS viewed_times_json
-                , COUNT(viewed_time) * 5 * 60 AS viewed_seconds
-                FROM views
-                GROUP BY program_id
-            )
             SELECT
                 programs.id
             , programs.name
             , programs.service_id
             , programs.start_time
             , programs.duration
-            , agg_views.viewed_times_json
+            , (SELECT json_group_array(viewed_time) FROM views WHERE views.program_id = programs.id) AS viewed_times_json
             FROM programs
-            LEFT OUTER JOIN agg_views ON agg_views.program_id = programs.id
             WHERE
                 EXISTS(
                     SELECT 1
                     FROM recordings
                     WHERE program_id = programs.id AND watched_at IS NULL AND deleted_at IS NULL
                     )
-              AND COALESCE(agg_views.viewed_seconds, 0) < programs.duration * 0.8
+              AND COALESCE((SELECT COUNT(viewed_time) * 5 * 60 FROM views WHERE views.program_id = programs.id), 0) < programs.duration * 0.8
             ORDER BY programs.start_time
         """)
         rows = cur.fetchall()

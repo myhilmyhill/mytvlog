@@ -7,9 +7,6 @@ import sqlite3
 
 from .models.api import JST
 from .repositories.interfaces import DigestionRepository, ProgramRepository, RecordingRepository, SeriesRepository, ViewRepository
-from .repositories.sqlite.api import SQLiteDigestionRepository, SQLiteProgramRepository, SQLiteRecordingRepository, SQLiteSeriesRepository, SQLiteViewRepository
-from .repositories.bigquery.api import BigQueryDigestionRepository, BigQueryProgramRepository, BigQueryRecordingRepository, BigQuerySeriesRepository, BigQueryViewRepository
-
 
 def make_db_connection(db_path, **kwargs):
     con = sqlite3.connect(db_path, detect_types=sqlite3.PARSE_COLNAMES, **kwargs)
@@ -40,45 +37,86 @@ DB_PATH = "db/tv.db"
 BIGQUERY_PROJECT_ID = os.getenv("bigquery_project_id")
 BIGQUERY_DATASET_ID = os.getenv("bigquery_dataset_id")
 
-def get_db_connection():
-    con = make_db_connection(DB_PATH)
-    try:
-        yield con
-    finally:
-        con.close()
+def get_db():
+    db_type = os.getenv("DB")
+    if db_type == "sqlite":
+        con = make_db_connection(DB_PATH)
+        try:
+            yield con
+        finally:
+            con.close()
+    else:
+        yield None
 
-DbConnectionDep = Annotated[sqlite3.Connection, Depends(get_db_connection)]
+DbDep = Annotated[sqlite3.Connection | None, Depends(get_db)]
 
-def _repo_getter_factory(sqlite_cls, bq_cls):
-    def _getter():
-        db = os.getenv("DB")
-        if db == "sqlite":
-            con = make_db_connection(DB_PATH)
-            try:
-                yield sqlite_cls(con)
-            finally:
-                con.close()
-        elif db == "bigquery":
-            yield bq_cls(BIGQUERY_PROJECT_ID, BIGQUERY_DATASET_ID)
-        else:
-            raise RuntimeError(f"Unsupported DB type: {db}")
+_bigquery_client = None
 
-    return _getter
+def get_bigquery_client():
+    global _bigquery_client
+    if _bigquery_client is None:
+        from google.cloud import bigquery
+        _bigquery_client = bigquery.Client(project=BIGQUERY_PROJECT_ID)
+    return _bigquery_client
 
+def get_prog_repo(db: DbDep):
+    db_type = os.getenv("DB")
+    if db_type == "sqlite":
+        from .repositories.sqlite.api import SQLiteProgramRepository
+        return SQLiteProgramRepository(db)
+    elif db_type == "bigquery":
+        from .repositories.bigquery.api import BigQueryProgramRepository
+        return BigQueryProgramRepository(get_bigquery_client(), BIGQUERY_DATASET_ID)
+    raise RuntimeError(f"Unsupported DB type: {db_type}")
 
-get_prog_repo = _repo_getter_factory(SQLiteProgramRepository, BigQueryProgramRepository)
 ProgramRepositoryDep = Annotated[ProgramRepository, Depends(get_prog_repo)]
 
-get_rec_repo = _repo_getter_factory(SQLiteRecordingRepository, BigQueryRecordingRepository)
+def get_rec_repo(db: DbDep):
+    db_type = os.getenv("DB")
+    if db_type == "sqlite":
+        from .repositories.sqlite.api import SQLiteRecordingRepository
+        return SQLiteRecordingRepository(db)
+    elif db_type == "bigquery":
+        from .repositories.bigquery.api import BigQueryRecordingRepository
+        return BigQueryRecordingRepository(get_bigquery_client(), BIGQUERY_DATASET_ID)
+    raise RuntimeError(f"Unsupported DB type: {db_type}")
+
 RecordingRepositoryDep = Annotated[RecordingRepository, Depends(get_rec_repo)]
 
-get_view_repo = _repo_getter_factory(SQLiteViewRepository, BigQueryViewRepository)
+def get_view_repo(db: DbDep):
+    db_type = os.getenv("DB")
+    if db_type == "sqlite":
+        from .repositories.sqlite.api import SQLiteViewRepository
+        return SQLiteViewRepository(db)
+    elif db_type == "bigquery":
+        from .repositories.bigquery.api import BigQueryViewRepository
+        return BigQueryViewRepository(get_bigquery_client(), BIGQUERY_DATASET_ID)
+    raise RuntimeError(f"Unsupported DB type: {db_type}")
+
 ViewRepositoryDep = Annotated[ViewRepository, Depends(get_view_repo)]
 
-get_dig_repo = _repo_getter_factory(SQLiteDigestionRepository, BigQueryDigestionRepository)
+def get_dig_repo(db: DbDep):
+    db_type = os.getenv("DB")
+    if db_type == "sqlite":
+        from .repositories.sqlite.api import SQLiteDigestionRepository
+        return SQLiteDigestionRepository(db)
+    elif db_type == "bigquery":
+        from .repositories.bigquery.api import BigQueryDigestionRepository
+        return BigQueryDigestionRepository(get_bigquery_client(), BIGQUERY_DATASET_ID)
+    raise RuntimeError(f"Unsupported DB type: {db_type}")
+
 DigestionRepositoryDep = Annotated[DigestionRepository, Depends(get_dig_repo)]
 
-get_series_repo = _repo_getter_factory(SQLiteSeriesRepository, BigQuerySeriesRepository)
+def get_series_repo(db: DbDep):
+    db_type = os.getenv("DB")
+    if db_type == "sqlite":
+        from .repositories.sqlite.api import SQLiteSeriesRepository
+        return SQLiteSeriesRepository(db)
+    elif db_type == "bigquery":
+        from .repositories.bigquery.api import BigQuerySeriesRepository
+        return BigQuerySeriesRepository(get_bigquery_client(), BIGQUERY_DATASET_ID)
+    raise RuntimeError(f"Unsupported DB type: {db_type}")
+
 SeriesRepositoryDep = Annotated[SeriesRepository, Depends(get_series_repo)]
 
 def get_db_connection_factory():
@@ -88,5 +126,3 @@ def get_db_connection_factory():
     return lambda: make_db_connection(DB_PATH)
 
 DbConnectionFactoryDep = Annotated[Callable[[], sqlite3.Connection], Depends(get_db_connection_factory)]
-
-

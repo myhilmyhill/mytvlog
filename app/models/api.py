@@ -15,6 +15,7 @@ def localize_to_jst(dt: datetime) -> datetime:
 JSTDatetime = Annotated[datetime, AfterValidator(localize_to_jst)]
 
 class ProgramQueryParams(BaseModel):
+    model_config = {"slots": True}
     page: int = Query(default=1)
     size: int = Query(default=100)
     from_: JSTDatetime | None | Literal[""] = Query(default=None)
@@ -22,6 +23,7 @@ class ProgramQueryParams(BaseModel):
     name: str = Query(default="")
 
 class ProgramBase(BaseModel):
+    model_config = {"slots": True}
     event_id: int
     service_id: int
     name: str
@@ -48,7 +50,7 @@ class ProgramGet(ProgramGetBase):
     @computed_field
     @property
     def viewed_times(self) -> list[datetime]:
-        times = json.loads(self.viewed_times_json or '[]')
+        times = json.loads(self.viewed_times_json or '[]') or []
         result = []
         for t in times:
             if isinstance(t, int):
@@ -63,14 +65,16 @@ class ProgramGet(ProgramGetBase):
     @computed_field
     @property
     def recordings(self) -> list[int | str]:
-        return json.loads(self.recordings_json or '[]')
+        return json.loads(self.recordings_json or '[]') or []
 
 class ViewQueryParams(BaseModel):
+    model_config = {"slots": True}
     program_id: int | str | None = Query(default=None)
     page: int | None = Query(default=1, gt=0, title="program_id 指定時は無視されて全件取得します")
     size: int | None = Query(default=500, gt=0, title="program_id 指定時は無視されて全件取得します")
 
 class ViewBase(BaseModel):
+    model_config = {"slots": True}
     viewed_time: datetime
     created_at: datetime
 
@@ -82,6 +86,7 @@ class ViewPost(ViewBase):
     created_at: datetime = datetime.now()
 
 class RecordingQueryParams(BaseModel):
+    model_config = {"slots": True}
     program_id: int | str | None = Query(default=None)
     # TODO: バグでaliasが効かない
     from_: JSTDatetime | None | Literal[""] = Query(default=None, alias="from")
@@ -91,6 +96,7 @@ class RecordingQueryParams(BaseModel):
     file_folder: str = Query(default="")
 
 class RecordingBase(BaseModel):
+    model_config = {"slots": True}
     program: ProgramBase
     file_path: str
     file_size: int | None
@@ -129,6 +135,7 @@ class RecordingPatch(BaseModel):
     )
 
 class Series(BaseModel):
+    model_config = {"slots": True}
     id: int | str
     name: str
     created_at: datetime
@@ -138,6 +145,7 @@ class SeriesWithPrograms(Series):
     programs: list[ProgramGet]
 
 class SeriesQueryParams(BaseModel):
+    model_config = {"slots": True}
     name: str = Query(default="")
     page: int = Query(default=1)
     size: int = Query(default=100)
@@ -157,6 +165,7 @@ class SeriesProgramPatch(BaseModel):
     series_name: str
 
 class Digestion(BaseModel):
+    model_config = {"slots": True}
     id: int | str
     name: str
     service_id: int
@@ -172,7 +181,7 @@ class Digestion(BaseModel):
     @computed_field
     @property
     def viewed_times(self) -> list[datetime]:
-        times = json.loads(self.viewed_times_json or '[]')
+        times = json.loads(self.viewed_times_json or '[]') or []
         result = []
         for t in times:
             if isinstance(t, int):

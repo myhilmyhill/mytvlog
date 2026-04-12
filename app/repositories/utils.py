@@ -2,8 +2,6 @@ import unicodedata
 from pydantic import BaseModel
 import re
 import json
-from google import genai
-from google.genai import types
 
 def extract_model_fields(model: type[BaseModel], row: dict, aliases: dict[str, str] = None) -> dict:
     aliases = aliases or {}
@@ -16,6 +14,8 @@ def extract_model_fields(model: type[BaseModel], row: dict, aliases: dict[str, s
     return result
 
 async def extract_series_title_llm(raw: str, api_key: str) -> str:
+    from google import genai
+    from google.genai import types
     client = genai.Client(api_key=api_key).aio
     response = await client.models.generate_content(
         model='gemini-2.5-flash',

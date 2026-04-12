@@ -8,9 +8,9 @@ from ..exceptions import InvalidDataError, NotFoundError, UnexpectedError
 from ..utils import extract_model_fields
 
 class BigQueryBaseRepository:
-    def __init__(self, project_id: str, dataset_id: str):
-        self.client = bigquery.Client(project=project_id)
-        self.project_id = project_id
+    def __init__(self, client: bigquery.Client, dataset_id: str):
+        self.client = client
+        self.project_id = client.project
         self.dataset_id = dataset_id
 
     def _make_query_job_config(self, query_parameters=None) -> bigquery.QueryJobConfig:
@@ -20,8 +20,8 @@ class BigQueryBaseRepository:
         )
 
 class BigQueryProgramRepository(BigQueryBaseRepository, ProgramRepository):
-    def __init__(self, project_id: str, dataset_id: str):
-        super().__init__(project_id, dataset_id)
+    def __init__(self, client: bigquery.Client, dataset_id: str):
+        super().__init__(client, dataset_id)
 
     def search(self, params: ProgramQueryParams) -> list[ProgramGet]:
         query_params = {
@@ -32,36 +32,20 @@ class BigQueryProgramRepository(BigQueryBaseRepository, ProgramRepository):
             "offset": (params.page - 1) * params.size,
         }
         job = self.client.query("""
-WITH agg_views AS (
-    SELECT
-        program_id,
-        TO_JSON_STRING(ARRAY_AGG(viewed_time)) AS viewed_times_json
-    FROM views
-    GROUP BY program_id
-),
-agg_recordings AS (
-    SELECT
-        program_id,
-        TO_JSON_STRING(ARRAY_AGG(id)) AS recordings_json
-    FROM recordings
-    GROUP BY program_id
-)
 SELECT
-    programs.id,
-    programs.event_id,
-    programs.service_id,
-    programs.name,
-    programs.start_time,
-    programs.duration,
-    programs.text,
-    programs.ext_text,
-    programs.genre,
-    programs.created_at,
-    agg_views.viewed_times_json,
-    agg_recordings.recordings_json
+    id,
+    event_id,
+    service_id,
+    name,
+    start_time,
+    duration,
+    text,
+    ext_text,
+    genre,
+    created_at,
+    (SELECT TO_JSON_STRING(ARRAY_AGG(viewed_time)) FROM views WHERE views.program_id = programs.id) AS viewed_times_json,
+    (SELECT TO_JSON_STRING(ARRAY_AGG(id)) FROM recordings WHERE recordings.program_id = programs.id) AS recordings_json
 FROM programs
-LEFT JOIN agg_views ON agg_views.program_id = programs.id
-LEFT JOIN agg_recordings ON agg_recordings.program_id = programs.id
 WHERE
     TRUE
     AND (@from IS NULL OR @from <= programs.start_time)
@@ -83,20 +67,6 @@ LIMIT @size OFFSET @offset
 
     def get_by_id(self, id: str) -> ProgramGet | None:
         job = self.client.query("""
-            WITH agg_views AS (
-            SELECT
-                program_id,
-                TO_JSON_STRING(ARRAY_AGG(viewed_time)) AS viewed_times_json
-            FROM views
-            GROUP BY program_id
-            ),
-            agg_recordings AS (
-            SELECT
-                program_id,
-                TO_JSON_STRING(ARRAY_AGG(id)) AS recordings_json
-            FROM recordings
-            GROUP BY program_id
-            )
             SELECT
             p.id,
             p.event_id,
@@ -108,11 +78,9 @@ LIMIT @size OFFSET @offset
             p.ext_text,
             p.genre,
             p.created_at,
-            agg_views.viewed_times_json,
-            agg_recordings.recordings_json
+            (SELECT TO_JSON_STRING(ARRAY_AGG(viewed_time)) FROM views WHERE views.program_id = p.id) AS viewed_times_json,
+            (SELECT TO_JSON_STRING(ARRAY_AGG(id)) FROM recordings WHERE recordings.program_id = p.id) AS recordings_json
             FROM programs p
-            LEFT JOIN agg_views ON agg_views.program_id = p.id
-            LEFT JOIN agg_recordings ON agg_recordings.program_id = p.id
             WHERE p.id = @id
             """,
             job_config=self._make_query_job_config(query_parameters=[
@@ -175,8 +143,8 @@ LIMIT @size OFFSET @offset
         return new_id
 
 class BigQueryViewRepository(BigQueryBaseRepository, ViewRepository):
-    def __init__(self, project_id: str, dataset_id: str):
-        super().__init__(project_id, dataset_id)
+    def __init__(self, client: bigquery.Client, dataset_id: str):
+        super().__init__(client, dataset_id)
 
     def search(self, params: ViewQueryParams) -> list[ViewGet]:
         if params.program_id is not None:
@@ -222,8 +190,8 @@ class BigQueryViewRepository(BigQueryBaseRepository, ViewRepository):
 
 
 class BigQueryRecordingRepository(BigQueryBaseRepository, RecordingRepository):
-    def __init__(self, project_id: str, dataset_id: str):
-        super().__init__(project_id, dataset_id)
+    def __init__(self, client: bigquery.Client, dataset_id: str):
+        super().__init__(client, dataset_id)
 
     def search(self, params: RecordingQueryParams) -> list[RecordingGet]:
         job = self.client.query("""
@@ -405,8 +373,8 @@ class BigQueryRecordingRepository(BigQueryBaseRepository, RecordingRepository):
         return False
 
 class BigQuerySeriesRepository(BigQueryBaseRepository, SeriesRepository):
-    def __init__(self, project_id: str, dataset_id: str):
-        super().__init__(project_id, dataset_id)
+    def __init__(self, client: bigquery.Client, dataset_id: str):
+        super().__init__(client, dataset_id)
 
     def search(self, params: SeriesQueryParams) -> list[Series]:
         query_params = {
@@ -453,20 +421,6 @@ class BigQuerySeriesRepository(BigQueryBaseRepository, SeriesRepository):
         series = Series(**series_row)
 
         job = self.client.query("""
-            WITH agg_views AS (
-                SELECT
-                    program_id,
-                    TO_JSON_STRING(ARRAY_AGG(viewed_time)) AS viewed_times_json
-                FROM views
-                GROUP BY program_id
-            ),
-            agg_recordings AS (
-                SELECT
-                    program_id,
-                    TO_JSON_STRING(ARRAY_AGG(id)) AS recordings_json
-                FROM recordings
-                GROUP BY program_id
-            )
             SELECT
                 p.id,
                 p.event_id,
@@ -478,11 +432,9 @@ class BigQuerySeriesRepository(BigQueryBaseRepository, SeriesRepository):
                 p.ext_text,
                 p.genre,
                 p.created_at,
-                av.viewed_times_json,
-                ar.recordings_json
+                (SELECT TO_JSON_STRING(ARRAY_AGG(viewed_time)) FROM views WHERE views.program_id = p.id) AS viewed_times_json,
+                (SELECT TO_JSON_STRING(ARRAY_AGG(id)) FROM recordings WHERE recordings.program_id = p.id) AS recordings_json
             FROM programs p
-            LEFT JOIN agg_views av ON av.program_id = p.id
-            LEFT JOIN agg_recordings ar ON ar.program_id = p.id
             INNER JOIN program_series ps ON ps.program_id = p.id
             WHERE ps.series_id = @id
             ORDER BY p.start_time DESC
@@ -620,32 +572,23 @@ class BigQuerySeriesRepository(BigQueryBaseRepository, SeriesRepository):
         ])).result()
 
 class BigQueryDigestionRepository(BigQueryBaseRepository, DigestionRepository):
-    def __init__(self, project_id: str, dataset_id: str):
-        super().__init__(project_id, dataset_id)
+    def __init__(self, client: bigquery.Client, dataset_id: str):
+        super().__init__(client, dataset_id)
         
     def list_digestions(self) -> list[Digestion]:
         rows = self.client.query("""
-            WITH agg_views AS (
-                SELECT
-                    program_id,
-                    TO_JSON_STRING(ARRAY_AGG(viewed_time)) AS viewed_times_json,
-                    COUNT(viewed_time) * 5 * 60 AS viewed_seconds
-                FROM views
-                GROUP BY program_id
-            )
             SELECT
                 p.id,
                 p.name,
                 p.service_id,
                 p.start_time,
                 p.duration,
-                agg.viewed_times_json
+                (SELECT TO_JSON_STRING(ARRAY_AGG(viewed_time)) FROM views WHERE views.program_id = p.id) AS viewed_times_json
             FROM programs p
-            LEFT JOIN agg_views agg ON agg.program_id = p.id
             WHERE EXISTS (
                 SELECT 1 FROM recordings r WHERE r.program_id = p.id AND r.watched_at IS NULL AND r.deleted_at IS NULL
             )
-              AND COALESCE(agg.viewed_seconds, 0) < p.duration * 0.8
+              AND COALESCE((SELECT COUNT(viewed_time) * 5 * 60 FROM views WHERE views.program_id = p.id), 0) < p.duration * 0.8
             ORDER BY p.start_time
             """, job_config=self._make_query_job_config()).result()
         return [Digestion(**dict(row)) for row in rows]

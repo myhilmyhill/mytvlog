@@ -10,12 +10,8 @@ SESSION_COOKIE_NAME = "session"
 SERVICE_ACCOUNT_KEY_PATH = "/etc/gcp/serviceAccountKey.json"
 VERBOSE = os.getenv("VERBOSE", "").lower() == "true"
 
-if not firebase_admin._apps:
-    if os.path.exists(SERVICE_ACCOUNT_KEY_PATH):
-        cred = credentials.Certificate(SERVICE_ACCOUNT_KEY_PATH)
-        firebase_admin.initialize_app(cred)
-    else:
-        firebase_admin.initialize_app()
+from ..firebase import initialize_firebase
+initialize_firebase()
 
 class FirebaseAuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
