@@ -56,7 +56,10 @@ def get_bigquery_client():
     global _bigquery_client
     if _bigquery_client is None:
         from google.cloud import bigquery
-        _bigquery_client = bigquery.Client(project=BIGQUERY_PROJECT_ID)
+        _bigquery_client = bigquery.Client(
+            project=BIGQUERY_PROJECT_ID,
+            client_options={"api_endpoint": "https://bigquery.googleapis.com"}
+        )
     return _bigquery_client
 
 def get_prog_repo(db: DbDep):

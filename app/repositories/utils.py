@@ -14,12 +14,12 @@ def extract_model_fields(model: type[BaseModel], row: dict, aliases: dict[str, s
     return result
 
 async def extract_series_title_llm(raw: str, api_key: str) -> str:
-    from google import genai
-    from google.genai import types
-    client = genai.Client(api_key=api_key).aio
-    response = await client.models.generate_content(
-        model='gemini-2.5-flash',
-        contents=f'''
+    import httpx
+    import json
+    
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    
+    prompt = f'''
         命令:
         与えられた番組表の文字列から「純粋な番組名」のみを抽出してください。
         【除外すべきノイズの定義】
@@ -35,13 +35,31 @@ async def extract_series_title_llm(raw: str, api_key: str) -> str:
         JSON形式 {{"title": "抽出結果"}} で出力してください。
 
         対象文字列: {raw}
-        ''',
-        config=types.GenerateContentConfig(
-            response_mime_type='application/json'
-        )
-    )
-    data = json.loads(response.text)
-    return data.get("title")
+    '''
+    
+    payload = {
+        "contents": [{
+            "parts": [{
+                "text": prompt
+            }]
+        }],
+        "generationConfig": {
+            "responseMimeType": "application/json"
+        }
+    }
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, json=payload, timeout=30.0)
+        response.raise_for_status()
+        data = response.json()
+        
+        try:
+            content = data["candidates"][0]["content"]["parts"][0]["text"]
+            result = json.loads(content)
+            return result.get("title")
+        except (KeyError, IndexError, json.JSONDecodeError) as e:
+            print(f"Failed to parse LLM response: {e}")
+            return None
 
 def extract_series_title(raw: str) -> str:
     """

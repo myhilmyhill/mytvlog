@@ -3,6 +3,7 @@ import os
 from datetime import datetime
 from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Path, Body, HTTPException, Response, status
+from starlette.concurrency import run_in_threadpool
 
 from ..models.api import ProgramQueryParams, ProgramGet, Series, SeriesAddProgram, SeriesPost, SeriesWithPrograms, ViewQueryParams, ViewGet, ViewPost, RecordingQueryParams, RecordingGet, RecordingPost, RecordingPatch, SeriesQueryParams, Digestion, SeriesPatch, SeriesProgramPatch, DigestionQueryParams
 from ..dependencies import DigestionRepositoryDep, ProgramRepositoryDep, RecordingRepositoryDep, ViewRepositoryDep, SeriesRepositoryDep
@@ -51,8 +52,8 @@ async def create_recording(item: Annotated[RecordingPost, Body()], prog_repo: Pr
     if not re.fullmatch("//[^/]+/[^/]+/.*", item.file_path):
         raise HTTPException(status_code=400, detail="Invalid file_path; should be '//server/folder/to/file'")
 
-    program_id = prog_repo.get_or_create(item.program, item.created_at, item.created_at)
-    id_ = rec_repo.create(item, program_id)
+    program_id = await run_in_threadpool(prog_repo.get_or_create, item.program, item.created_at, item.created_at)
+    id_ = await run_in_threadpool(rec_repo.create, item, program_id)
 
     try:
         series_name = await extract_series_title_llm(
@@ -64,10 +65,10 @@ async def create_recording(item: Annotated[RecordingPost, Body()], prog_repo: Pr
         series_name = extract_series_title(item.program.name)
 
     print(f"Extracted series name: {series_name}")
-    series_id = series_repo.get_or_create(series_name, item.created_at)
-    series_repo.add_program(series_id, program_id, item.created_at)
+    series_id = await run_in_threadpool(series_repo.get_or_create, series_name, item.created_at)
+    await run_in_threadpool(series_repo.add_program, series_id, program_id, item.created_at)
 
-    return rec_repo.get_by_id(id_)
+    return await run_in_threadpool(rec_repo.get_by_id, id_)
 
 @router.patch("/api/recordings/{id}")
 def patch_recording(
