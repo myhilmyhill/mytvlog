@@ -69,7 +69,7 @@
       </marker-plot>
       <td><button onclick="openDialog('{{ d.id }}')">⋮</button>
       <td>{{ d.duration // 60 }}
-      <td>{{ d.name }}
+      <td><a href="{{ url_for('program', id=d.id) }}">{{ d.name }}</a>
       <td>{{ d.start_time.strftime("%Y/%m/%d(%a) %H:%M") }}
 {% endfor %}
 </table>

@@ -30,9 +30,11 @@
     width="{{ 60 * 5 * 2 }}"></marker-plot>
   <dt>recordings
   <dd>
+    <ul>
     {% for r in program.recordings %}
-      <a href="{{ url_for('recording', id=r) }}">{{ r }}</a>
+      <li><a href="{{ url_for('recording', id=r) }}">{{ r }}</a>
     {% endfor %}
+    </ul>
 </dl>
 
 {% endblock %}

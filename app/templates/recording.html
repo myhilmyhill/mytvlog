@@ -1,5 +1,19 @@
 {% extends "base.html" %}
 {% block content %}
+<script>
+  'use strict'
+  const now = () => Temporal.Now.zonedDateTimeISO('Asia/Tokyo').toString({ timeZoneName: 'never' })
+  const patch = (id, body) => fetch(`/api/recordings/${id}`, {
+    headers: { 'Content-Type': 'application/json' },
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
+  function patchWatched(e) { patch(e, { watched_at: now() }).then(() => location.reload()) }
+  function patchDeleted(e) { patch(e, { deleted_at: now() }).then(() => location.reload()) }
+  function patchUndeleted(e) { patch(e, { deleted_at: null }).then(() => location.reload()) }
+  function patchUnwatched(e) { patch(e, { watched_at: null }).then(() => location.reload()) }
+</script>
+
 <h1>Recordings</h1>
 <h2>{{ recording.program.name }}</h2>
 
@@ -17,9 +31,15 @@
   <dt>file_size
   <dd>{{ recording.file_size|filesizeformat if recording.file_size }}
   <dt>watched
-  <dd>{{ recording.watched_at }}
+  <dd>
+    {{ recording.watched_at }}
+    <button onclick="patchWatched()">視聴済み</button>
+    <button onclick="patchUnwatched()">未視聴</button>
   <dt>deleted
-  <dd>{{ recording.deleted_at }}
+  <dd>
+    {{ recording.deleted_at }}
+    <button onclick="patchDeleted()">削除</button>
+    <button onclick="patchUndeleted()">未削除</button>
 </dl>
 
 
