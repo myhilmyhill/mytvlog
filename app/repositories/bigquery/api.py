@@ -38,6 +38,13 @@ WITH agg_views AS (
         TO_JSON_STRING(ARRAY_AGG(viewed_time)) AS viewed_times_json
     FROM views
     GROUP BY program_id
+),
+agg_recordings AS (
+    SELECT
+        program_id,
+        TO_JSON_STRING(ARRAY_AGG(id)) AS recordings_json
+    FROM recordings
+    GROUP BY program_id
 )
 SELECT
     programs.id,
@@ -50,9 +57,11 @@ SELECT
     programs.ext_text,
     programs.genre,
     programs.created_at,
-    agg_views.viewed_times_json
+    agg_views.viewed_times_json,
+    agg_recordings.recordings_json
 FROM programs
 LEFT JOIN agg_views ON agg_views.program_id = programs.id
+LEFT JOIN agg_recordings ON agg_recordings.program_id = programs.id
 WHERE
     TRUE
     AND (@from IS NULL OR @from <= programs.start_time)
@@ -80,6 +89,13 @@ LIMIT @size OFFSET @offset
                 TO_JSON_STRING(ARRAY_AGG(viewed_time)) AS viewed_times_json
             FROM views
             GROUP BY program_id
+            ),
+            agg_recordings AS (
+            SELECT
+                program_id,
+                TO_JSON_STRING(ARRAY_AGG(id)) AS recordings_json
+            FROM recordings
+            GROUP BY program_id
             )
             SELECT
             p.id,
@@ -92,9 +108,11 @@ LIMIT @size OFFSET @offset
             p.ext_text,
             p.genre,
             p.created_at,
-            agg_views.viewed_times_json
+            agg_views.viewed_times_json,
+            agg_recordings.recordings_json
             FROM programs p
             LEFT JOIN agg_views ON agg_views.program_id = p.id
+            LEFT JOIN agg_recordings ON agg_recordings.program_id = p.id
             WHERE p.id = @id
             """,
             job_config=self._make_query_job_config(query_parameters=[
@@ -441,6 +459,13 @@ class BigQuerySeriesRepository(BigQueryBaseRepository, SeriesRepository):
                     TO_JSON_STRING(ARRAY_AGG(viewed_time)) AS viewed_times_json
                 FROM views
                 GROUP BY program_id
+            ),
+            agg_recordings AS (
+                SELECT
+                    program_id,
+                    TO_JSON_STRING(ARRAY_AGG(id)) AS recordings_json
+                FROM recordings
+                GROUP BY program_id
             )
             SELECT
                 p.id,
@@ -453,9 +478,11 @@ class BigQuerySeriesRepository(BigQueryBaseRepository, SeriesRepository):
                 p.ext_text,
                 p.genre,
                 p.created_at,
-                av.viewed_times_json
+                av.viewed_times_json,
+                ar.recordings_json
             FROM programs p
             LEFT JOIN agg_views av ON av.program_id = p.id
+            LEFT JOIN agg_recordings ar ON ar.program_id = p.id
             INNER JOIN program_series ps ON ps.program_id = p.id
             WHERE ps.series_id = @id
             ORDER BY p.start_time DESC

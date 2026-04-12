@@ -42,7 +42,8 @@ class ProgramGetBase(ProgramBase):
         return self.start_time + timedelta(seconds=self.duration)
 
 class ProgramGet(ProgramGetBase):
-    viewed_times_json: str | None = Field(exclude=True)
+    viewed_times_json: str | None = Field(default=None, exclude=True)
+    recordings_json: str | None = Field(default=None, exclude=True)
 
     @computed_field
     @property
@@ -58,6 +59,11 @@ class ProgramGet(ProgramGetBase):
                 continue
             result.append(dt)
         return result
+
+    @computed_field
+    @property
+    def recordings(self) -> list[int | str]:
+        return json.loads(self.recordings_json or '[]')
 
 class ViewQueryParams(BaseModel):
     program_id: int | str | None = Query(default=None)

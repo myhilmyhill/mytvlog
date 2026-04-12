@@ -11,7 +11,7 @@
   <tbody>
   {% for item in views %}
     <tr>
-      <td><a href="{{ url_for('get_program', id=item.program_id) }}">{{ item.program_id }}</a>
+      <td><a href="{{ url_for('program', id=item.program_id) }}">{{ item.program_id }}</a>
       <td>{{ item.viewed_time.strftime("%Y/%m/%d(%a) %H:%M:%S") }}
       <td>{{ item.created_at.strftime("%Y/%m/%d(%a) %H:%M:%S") }}
   {% endfor %}

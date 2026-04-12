@@ -22,6 +22,13 @@ class SQLiteProgramRepository(ProgramRepository):
                 FROM views
                 GROUP BY program_id
             )
+            , agg_recordings AS (
+                SELECT
+                    program_id
+                , json_group_array(id) AS recordings_json
+                FROM recordings
+                GROUP BY program_id
+            )
             SELECT
                 id
             , event_id
@@ -34,8 +41,10 @@ class SQLiteProgramRepository(ProgramRepository):
             , genre
             , created_at AS "created_at [timestamp]"
             , agg_views.viewed_times_json
+            , agg_recordings.recordings_json
             FROM programs
             LEFT OUTER JOIN agg_views ON agg_views.program_id = programs.id
+            LEFT OUTER JOIN agg_recordings ON agg_recordings.program_id = programs.id
             WHERE
                 TRUE
             AND (:from IS NULL OR :from <= programs.start_time)
@@ -64,6 +73,13 @@ class SQLiteProgramRepository(ProgramRepository):
                 FROM views
                 GROUP BY program_id
             )
+            , agg_recordings AS (
+                SELECT
+                    program_id
+                , json_group_array(id) AS recordings_json
+                FROM recordings
+                GROUP BY program_id
+            )
             SELECT
                 id
             , event_id
@@ -76,8 +92,10 @@ class SQLiteProgramRepository(ProgramRepository):
             , genre
             , created_at AS "created_at [timestamp]"
             , agg_views.viewed_times_json
+            , agg_recordings.recordings_json
             FROM programs
             LEFT OUTER JOIN agg_views ON agg_views.program_id = programs.id
+            LEFT OUTER JOIN agg_recordings ON agg_recordings.program_id = programs.id
             WHERE id = ?
         """, (id,))
         row = cur.fetchone()
@@ -384,6 +402,13 @@ class SQLiteSeriesRepository(SeriesRepository):
                 FROM views
                 GROUP BY program_id
             )
+            , agg_recordings AS (
+                SELECT
+                    program_id
+                , json_group_array(id) AS recordings_json
+                FROM recordings
+                GROUP BY program_id
+            )
             SELECT
               p.id
             , p.event_id
@@ -396,18 +421,16 @@ class SQLiteSeriesRepository(SeriesRepository):
             , p.genre
             , p.created_at AS "created_at [timestamp]"
             , av.viewed_times_json
+            , ar.recordings_json
             FROM programs p
             LEFT OUTER JOIN agg_views av ON av.program_id = p.id
+            LEFT OUTER JOIN agg_recordings ar ON ar.program_id = p.id
             INNER JOIN program_series ps ON ps.program_id = p.id
             WHERE ps.series_id = ?
             ORDER BY p.start_time DESC
         """, (id,))
         rows = cur.fetchall()
         programs = [ProgramGet(**r) for r in rows]
-        print(SeriesWithPrograms(
-            **series.model_dump(),
-            programs=programs,
-        ))
         return SeriesWithPrograms(
             **series.model_dump(),
             programs=programs,

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Recordings</h1>
+<h2>{{ recording.program.name }}</h2>
+
+<dl>
+  <dt>id
+  <dd>{{ recording.id }}
+  <dt>program_id
+  <dd><a href="{{ url_for('program', id=recording.program.id) }}">{{ recording.program.id }}</a>
+  <dt>file_path
+  <dd>
+    <button onclick="play('{{ recording.file_path }}')">▶</button>
+    {{ recording.file_path }}
+  <dt>file_folder
+  <dd>{{ recording.file_folder if recording.file_folder }}
+  <dt>file_size
+  <dd>{{ recording.file_size|filesizeformat if recording.file_size }}
+  <dt>watched
+  <dd>{{ recording.watched_at }}
+  <dt>deleted
+  <dd>{{ recording.deleted_at }}
+</dl>
+
+
+{% endblock %}

@@ -11,7 +11,7 @@
   <tbody>
     {% for p in series_with_programs.programs %}
     <tr>
-      <td><a href="{{ url_for('get_program', id=p.id) }}">{{ p.id }}</a>
+      <td><a href="{{ url_for('program', id=p.id) }}">{{ p.id }}</a>
       <td>{{ p.name }}
       <td><button command="show-modal" commandfor="edit-dialog" data-id="{{ p.id }}">:</button>
     {% endfor %}

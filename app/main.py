@@ -62,6 +62,15 @@ def programs(request: Request,
     return templates.TemplateResponse(
         request=request, name="programs.html", context={"programs": programs, "params": params})
 
+@app.get("/programs/{id}", response_class=HTMLResponse)
+def program(request: Request,
+            id: int | str,
+            prog_repo: ProgramRepositoryDep):
+    program = api.get_program(id, prog_repo)
+
+    return templates.TemplateResponse(
+        request=request, name="program.html", context={"program": program})
+
 @app.get("/recordings", response_class=HTMLResponse)
 def recordings(request: Request,
                params: Annotated[api.RecordingQueryParams, Depends()],
@@ -70,6 +79,15 @@ def recordings(request: Request,
 
     return templates.TemplateResponse(
         request=request, name="recordings.html", context={"recordings": recordings})
+
+@app.get("/recordings/{id}", response_class=HTMLResponse)
+def recording(request: Request,
+              id: int | str,
+              rec_repo: RecordingRepositoryDep):
+    recording = api.get_recording(id, rec_repo)
+
+    return templates.TemplateResponse(
+        request=request, name="recording.html", context={"recording": recording})
 
 @app.get("/views", response_class=HTMLResponse)
 def views(request: Request,

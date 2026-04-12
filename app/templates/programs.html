@@ -29,7 +29,7 @@
         max="{{ p.end_time_timestamp }}"
         data="{{ p.viewed_times_timestamp }}"
         width="{{ 60 * 5 * 2 }}"></marker-plot>
-      <td><a href="{{ url_for('get_program', id=p.id) }}">{{ p.id }}</a>
+      <td><a href="{{ url_for('program', id=p.id) }}">{{ p.id }}</a>
       <td>{{ p.name }}
       <td>{{ p.service_id }}
       <td>{{ p.start_time.strftime("%Y/%m/%d(%a) %H:%M") }}-{{ p.end_time.strftime("%H:%M") }}

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Programs</h1>
+<h2>{{ program.name }}</h2>
+
+<dl>
+  <dt>id
+  <dd>{{ program.id }}
+  <dt>event_id
+  <dd>{{ program.event_id }}
+  <dt>service_id
+  <dd>{{ program.service_id }}
+  <dt>start_time
+  <dd>{{ program.start_time }}
+  <dt>duration
+  <dd>{{ program.duration }}
+  <dt>text
+  <dd>{{ program.text }}
+  <dt>ext_text
+  <dd>{{ program.ext_text }}
+  <dt>genre
+  <dd>{{ program.genre }}
+  <dt>created_at
+  <dd>{{ program.created_at }}
+  <dt>viewed_times
+  <dd><marker-plot
+    min="{{ program.start_time_timestamp }}"
+    max="{{ program.end_time_timestamp }}"
+    data="{{ program.viewed_times_timestamp }}"
+    width="{{ 60 * 5 * 2 }}"></marker-plot>
+  <dt>recordings
+  <dd>
+    {% for r in program.recordings %}
+      <a href="{{ url_for('recording', id=r) }}">{{ r }}</a>
+    {% endfor %}
+</dl>
+
+{% endblock %}

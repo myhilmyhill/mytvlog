@@ -65,8 +65,8 @@
   <tbody>
   {% for r in recordings %}
     <tr>
-      <td><a href="{{ url_for('get_recording', id=r.id) }}">{{ r.id }}</a>
-      <td><a href="{{ url_for('get_program', id=r.program.id) }}">{{ r.program.id }}</a>
+      <td><a href="{{ url_for('recording', id=r.id) }}">{{ r.id }}</a>
+      <td><a href="{{ url_for('program', id=r.program.id) }}">{{ r.program.id }}</a>
       <td>{{ r.program.name }}
       <td><button onclick="openDialog('{{ r.id }}')">⋮</button>
       <td>{{ 1 if r.watched_at }}
