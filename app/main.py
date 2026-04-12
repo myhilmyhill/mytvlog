@@ -68,7 +68,12 @@ def programs(request: Request,
 def program(request: Request,
             id: int | str,
             prog_repo: ProgramRepositoryDep):
-    program = api.get_program(id, prog_repo)
+    program = {
+        **api.get_program(id, prog_repo).model_dump(),
+        "start_time_timestamp": int(api.get_program(id, prog_repo).start_time.timestamp()),
+        "end_time_timestamp": int(api.get_program(id, prog_repo).end_time.timestamp()),
+        "viewed_times_timestamp": [int(t.timestamp()) for t in api.get_program(id, prog_repo).viewed_times],
+    }
 
     return templates.TemplateResponse(
         request=request, name="program.html", context={"program": program})
