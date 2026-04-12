@@ -44,21 +44,24 @@ async def extract_series_title_llm(raw: str, api_key: str) -> str:
             "parts": [{
                 "text": prompt
             }]
-        }]
+        }],
+        "generationConfig": {
+            "response_mime_type": "application/json"
+        }
     }
     
     async with httpx.AsyncClient() as client:
         response = await client.post(url, headers=headers, json=payload, timeout=120.0)
         response.raise_for_status()
         data = response.json()
-        
-        try:
-            content = data["candidates"][0]["content"]["parts"][0]["text"]
-            result = json.loads(content)
-            return result.get("title")
-        except (KeyError, IndexError, json.JSONDecodeError) as e:
-            print(f"Failed to parse LLM response: {e}")
-            return None
+
+    try:
+        content = data["candidates"][0]["content"]["parts"][0]["text"]
+        result = json.loads(content)
+        return result.get("title")
+    except (KeyError, IndexError, json.JSONDecodeError) as e:
+        print(f"Failed to parse LLM response: {e}")
+    return None
 
 def extract_series_title(raw: str) -> str:
     """
