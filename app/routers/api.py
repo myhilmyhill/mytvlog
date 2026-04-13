@@ -116,7 +116,7 @@ def update_series(id: int | str, item: SeriesPatch, series_repo: SeriesRepositor
 @router.post("/api/series/{id}/programs")
 def add_program_to_series(id: int | str, params: SeriesAddProgram, series_repo: SeriesRepositoryDep):
     try:
-        series_repo.add_program(id, params.program_id, datetime.now())
+        series_repo.add_program(id, params.program_id, datetime.now(timezone.utc))
     except NotFoundError as e:
         raise HTTPException(status_code=404, detail=e.detail)
     return

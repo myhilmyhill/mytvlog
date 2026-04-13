@@ -8,8 +8,8 @@ CREATE TABLE IF NOT EXISTS "programs"(
   , duration INTEGER NOT NULL
   , text TEXT
   , ext_text TEXT
-  , created_at INTEGER NOT NULL
   , genre TEXT
+  , created_at INTEGER NOT NULL
 ) STRICT
 ;
 -- 録画履歴
@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS "recordings"(
 CREATE TABLE IF NOT EXISTS "views"(
     program_id INTEGER NOT NULL
   , viewed_time INTEGER NOT NULL
+  , speed REAL
   , created_at INTEGER NOT NULL
   , FOREIGN KEY (program_id) REFERENCES programs(id)
 ) STRICT

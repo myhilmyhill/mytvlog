@@ -2,7 +2,7 @@ from typing import Annotated, Literal
 from fastapi import Query
 from pydantic import AfterValidator, BaseModel, Field, computed_field
 from zoneinfo import ZoneInfo
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 
 JST = ZoneInfo("Asia/Tokyo")
@@ -77,13 +77,14 @@ class ViewBase(BaseModel):
     model_config = {"slots": True}
     viewed_time: datetime
     created_at: datetime
+    speed: float = 1.0
 
 class ViewGet(ViewBase):
     program_id: int | str
 
 class ViewPost(ViewBase):
     program: ProgramBase
-    created_at: datetime = datetime.now()
+    created_at: datetime = datetime.now(timezone.utc)
 
 class RecordingQueryParams(BaseModel):
     model_config = {"slots": True}
@@ -121,7 +122,7 @@ class RecordingPost(RecordingBase):
     file_size: int | None = None
     watched_at: datetime | None = None
     deleted_at: datetime | None = None
-    created_at: datetime = datetime.now()
+    created_at: datetime = datetime.now(timezone.utc)
 
 class RecordingPatch(BaseModel):
     file_path: str | None = Field(
@@ -154,7 +155,7 @@ class SeriesQueryParams(BaseModel):
 
 class SeriesPost(BaseModel):
     name: str
-    created_at: datetime = datetime.now()
+    created_at: datetime = datetime.now(timezone.utc)
 
 # add_program_to_series
 class SeriesAddProgram(BaseModel):

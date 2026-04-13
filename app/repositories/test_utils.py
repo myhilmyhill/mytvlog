@@ -13,6 +13,7 @@ from app.repositories.utils import extract_series_title
     ("架空名作劇場・人情刑事呉村安太郎[再]第1夜[字]", "架空名作劇場・人情刑事呉村安太郎"),
     ("映画『スーパーマリオ／魔界帝国の女神』　★大人気ゲームをハリウッドが実写化!?", "映画『スーパーマリオ/魔界帝国の女神』"),
     ("【推しの子】　＃３０「アイドルと恋愛」", "【推しの子】"),
+    ("ゴーストコンサート：missing Songs　＃2", "ゴーストコンサート：missing Songs")
 ])
 def test_extract_series_title(raw, expected):
     assert extract_series_title(raw) == expected

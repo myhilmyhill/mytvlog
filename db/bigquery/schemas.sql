@@ -7,8 +7,8 @@ CREATE TABLE IF NOT EXISTS {DATASET}.programs (
   duration INT64 NOT NULL,
   text STRING,
   ext_text STRING,
-  created_at TIMESTAMP NOT NULL,
   genre STRING,
+  created_at TIMESTAMP NOT NULL,
   PRIMARY KEY(id) NOT ENFORCED
 )
 PARTITION BY DATE(start_time);
@@ -29,6 +29,7 @@ PARTITION BY DATE(created_at);
 CREATE TABLE IF NOT EXISTS {DATASET}.views (
   program_id STRING NOT NULL,
   viewed_time TIMESTAMP NOT NULL,
+  speed FLOAT64,
   created_at TIMESTAMP NOT NULL,
   FOREIGN KEY(program_id) REFERENCES {DATASET}.programs(id) NOT ENFORCED
 )

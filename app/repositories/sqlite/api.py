@@ -114,6 +114,7 @@ class SQLiteViewRepository(ViewRepository):
                 SELECT
                     program_id
                 , viewed_time AS "viewed_time [timestamp]"
+                , speed
                 , created_at AS "created_at [timestamp]"
                 FROM views
                 WHERE program_id = ?
@@ -126,6 +127,7 @@ class SQLiteViewRepository(ViewRepository):
                 SELECT
                     program_id
                 , viewed_time AS "viewed_time [timestamp]"
+                , speed
                 , created_at AS "created_at [timestamp]"
                 FROM views
                 ORDER BY created_at DESC
@@ -138,9 +140,9 @@ class SQLiteViewRepository(ViewRepository):
     def create(self, program_id: int, view: ViewBase) -> None:
         cursor = self.con.cursor()
         cursor.execute("""
-            INSERT INTO views(program_id, viewed_time, created_at)
-            VALUES(?, ?, ?)
-        """, (program_id, view.viewed_time, datetime.now()))
+            INSERT INTO views(program_id, viewed_time, speed, created_at)
+            VALUES(?, ?, ?, ?)
+        """, (program_id, view.viewed_time, view.speed, datetime.now(timezone.utc)))
         self.con.commit()
 
 class SQLiteRecordingRepository(RecordingRepository):
@@ -431,7 +433,7 @@ class SQLiteSeriesRepository(SeriesRepository):
             # Simple rename
             self.con.execute("""
                 UPDATE series SET name = ?, modified_at = ? WHERE id = ?
-            """, (name, datetime.now(), series_id))
+            """, (name, datetime.now(timezone.utc), series_id))
 
         self.con.commit()
 
@@ -445,7 +447,7 @@ class SQLiteSeriesRepository(SeriesRepository):
             cur = self.con.execute("""
                 INSERT INTO series(name, created_at, modified_at)
                 VALUES(?, ?, ?)
-            """, (new_series_name, datetime.now(), datetime.now()))
+            """, (new_series_name, datetime.now(timezone.utc), datetime.now(timezone.utc)))
             new_series_id = cur.lastrowid
 
         self.con.execute("""

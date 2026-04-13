@@ -37,7 +37,7 @@ def post_view(url: str, id_token: str, body: dict):
     res.raise_for_status()
 
 def sleep_until_next_interval(interval_minutes, delay_seconds):
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     next_minute = ((now.minute // interval_minutes) + 1) * interval_minutes
     if next_minute >= 60:
         next_time = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
@@ -69,7 +69,8 @@ def poll_once():
                 "duration": status["current_event_duration"],
                 "genre": status["current_content_nibble"],
             },
-            "viewed_time": status["tot"]
+            "viewed_time": status["tot"],
+            "speed": status["speed"] if "speed" in status else 1.0,
         }
 
 #        try:

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import re
 import uuid
 from google.cloud import bigquery
@@ -152,6 +152,7 @@ class BigQueryViewRepository(BigQueryBaseRepository, ViewRepository):
             SELECT
                 program_id,
                 viewed_time,
+                speed,
                 created_at
             FROM views
             WHERE program_id = @program_id
@@ -164,6 +165,7 @@ class BigQueryViewRepository(BigQueryBaseRepository, ViewRepository):
             SELECT
                 program_id,
                 viewed_time,
+                speed,
                 created_at
             FROM views
             ORDER BY created_at DESC
@@ -179,13 +181,14 @@ class BigQueryViewRepository(BigQueryBaseRepository, ViewRepository):
 
     def create(self, program_id: str, view: ViewBase) -> None:
         query = """
-        INSERT INTO views(program_id, viewed_time, created_at)
-        VALUES(@program_id, @viewed_time, @created_at)
+        INSERT INTO views(program_id, viewed_time, speed, created_at)
+        VALUES(@program_id, @viewed_time, @speed, @created_at)
         """
         self.client.query(query, job_config=self._make_query_job_config(query_parameters=[
             bigquery.ScalarQueryParameter("program_id", "STRING", program_id),
             bigquery.ScalarQueryParameter("viewed_time", "TIMESTAMP", view.viewed_time),
-            bigquery.ScalarQueryParameter("created_at", "TIMESTAMP", datetime.now()),
+            bigquery.ScalarQueryParameter("speed", "FLOAT64", view.speed),
+            bigquery.ScalarQueryParameter("created_at", "TIMESTAMP", datetime.now(timezone.utc)),
         ])).result()
 
 
@@ -556,13 +559,13 @@ class BigQuerySeriesRepository(BigQueryBaseRepository, SeriesRepository):
                 WHERE id = @id
                 """, job_config=self._make_query_job_config(query_parameters=[
                     bigquery.ScalarQueryParameter("name", "STRING", name),
-                    bigquery.ScalarQueryParameter("now", "TIMESTAMP", datetime.now()),
+                    bigquery.ScalarQueryParameter("now", "TIMESTAMP", datetime.now(timezone.utc)),
                     bigquery.ScalarQueryParameter("id", "STRING", id),
             ])).result()
 
     def update_program_series(self, program_id: str, old_series_id: str, new_series_name: str) -> None:
         # Find or create new series
-        new_series_id = self.get_or_create(new_series_name, datetime.now())
+        new_series_id = self.get_or_create(new_series_name, datetime.now(timezone.utc))
         
         if new_series_id == old_series_id:
             return
