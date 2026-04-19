@@ -58,7 +58,7 @@ async def create_recording(item: Annotated[RecordingPost, Body()], prog_repo: Pr
     try:
         series_name = await extract_series_title_llm(
             item.program.name,
-            api_key=os.getenv("GEMINI_API_KEY")
+            github_token=os.getenv("GITHUB_TOKEN")
         )
     except Exception as e:
         print(f"LLM extraction failed: {e}")

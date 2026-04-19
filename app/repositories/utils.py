@@ -13,55 +13,70 @@ def extract_model_fields(model: type[BaseModel], row: dict, aliases: dict[str, s
             result[field_name] = row[source_key]
     return result
 
-async def extract_series_title_llm(raw: str, api_key: str) -> str:
+async def extract_series_title_llm(raw: str, github_token: str) -> str:
     import httpx
     import json
     
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent"
+    url = "https://models.github.ai/inference/chat/completions"
     headers = {
         "Content-Type": "application/json",
-        "X-goog-api-key": api_key,
+        "Authorization": f"Bearer {github_token}",
     }
-    prompt = f'''
-        命令:
-        与えられた番組表の文字列から「純粋な番組名」のみを抽出してください。
-        【除外すべきノイズの定義】
-            話数・回数: ＃10、(96)、第1夜 などの表記。
-            放送枠・ジャンル: 【連続テレビ小説】、【ヌマニメーション】、日5、AnichU などの枠名。
-            番組付随記号: [字]、[デ]、[再]、★、▽ などの記号。
-            サブタイトル・詳細: 「」内や ～ 以降に続くエピソード名、および対戦カード（「日本」対「韓国」など）。
-            宣伝文句: 記号以降に続く解説テキスト（例：★大人気ゲームを〜）。
-        【例外ルール】
-            **【推しの子】**のように、タイトル自体に【】が含まれる場合は、それを維持すること。
-            世界選手権2025のように、年号がタイトルの一部である場合は維持すること。
-        出力形式:
-        JSON形式 {{"title": "抽出結果"}} で出力してください。
-
-        対象文字列: {raw}
-    '''
+    messages = [
+        {"role": "system", "content": '''
+            You are a specialized tool that extracts the core SERIES title from Japanese TV program names.
+            Output ONLY a JSON object: {"title":"..."}. NO EXPLANATIONS.
+            The series title is almost always the FIRST PART of the input string.
+            Discard episode numbers (#3), subtitles in brackets, or secondary titles that come after the main title.
+            '''},
+        {"role": "user", "content": "逃がした魚は大きかったが釣りあげた魚が大きすぎた件　＃３「逃がした魚の淑女修行」"},
+        {"role": "assistant", "content": '{"title": "逃がした魚は大きかったが釣りあげた魚が大きすぎた件"}'},
+        {"role": "user", "content": "【推しの子】第2期　＃12"},
+        {"role": "assistant", "content": '{"title": "【推しの子】"}'},
+        {"role": "user", "content": "女神「異世界転生何になりたいですか」　俺「勇者の肋骨で」　ＡｎｉｃｈＵ"},
+        {"role": "assistant", "content": '{"title": "女神「異世界転生何になりたいですか」　俺「勇者の肋骨で」"}'},
+        {"role": "user", "content": "オタクに優しいギャルはいない!?　＃２【イマニメーションＷ】[デ][字]"},
+        {"role": "assistant", "content": '{"title": "オタクに優しいギャルはいない!?"}'},
+        {"role": "user", "content": "映画『スーパーマリオ／魔界帝国の女神』　★大人気ゲームをハリウッドが実写化!?"},
+        {"role": "assistant", "content": '{"title": "スーパーマリオ/魔界帝国の女神"}'},
+        {"role": "user", "content": "カーリング女子世界選手権２０２５　予選リーグ「日本」対「韓国」"},
+        {"role": "assistant", "content": '{"title": "カーリング女子世界選手権２０２５"}'},
+        {"role": "user", "content": "サンデーモーニング[字] “記録づくめ”酷暑に悲鳴▽記者殺害「ダブルタップ攻撃」とは"},
+        {"role": "assistant", "content": '{"title": "サンデーモーニング"}'},
+        {"role": "user", "content": f"{raw}\nTitle Extraction JSON:"}
+    ]
+    
     payload = {
-        "contents": [{
-            "parts": [{
-                "text": prompt
-            }]
-        }],
-        "generationConfig": {
-            "response_mime_type": "application/json"
-        }
+        "messages": messages,
+        "model": "openai/gpt-4o-mini",
+        "temperature": 0.0,
+        "max_tokens": 128,
     }
     
     async with httpx.AsyncClient() as client:
-        response = await client.post(url, headers=headers, json=payload, timeout=120.0)
-        response.raise_for_status()
-        data = response.json()
+        try:
+            response = await client.post(url, headers=headers, json=payload, timeout=60.0)
+            response.raise_for_status()
+            data = response.json()
+            content = data["choices"][0]["message"]["content"].strip()
+            
+            # Remove Markdown block if present
+            if content.startswith("```"):
+                content = re.sub(r"^```(?:json)?\n?|```$", "", content, flags=re.MULTILINE).strip()
+            
+            # Try to find JSON if content contains more than just JSON
+            if not content.startswith("{"):
+                match = re.search(r"\{.*\}", content, re.DOTALL)
+                if match:
+                    content = match.group(0)
 
-    try:
-        content = data["candidates"][0]["content"]["parts"][0]["text"]
-        result = json.loads(content)
-        return result.get("title")
-    except (KeyError, IndexError, json.JSONDecodeError) as e:
-        print(f"Failed to parse LLM response: {e}")
-    return None
+            result = json.loads(content)
+            return result.get("title")
+        except Exception as e:
+            print(f"Failed to extract title with LLM: {e}")
+            if 'response' in locals():
+                print(f"Raw Response Content: {response.text}")
+            return None
 
 def extract_series_title(raw: str) -> str:
     """
@@ -97,7 +112,7 @@ def extract_series_title(raw: str) -> str:
     # - スペースの後の 「」 『』 () [] （） 【】 など
     s = re.sub(r"\s+([\"“★☆▽▼「『(（\[【].*)", " ", s)
     # - 記号で区切られた後半部分
-    s = re.sub(r"\s*[:：〜～\-ー－/／]{1,2}\s*.*$", "", s)
+    s = re.sub(r"\s*[:：〜～\-－/／]{1,2}\s*.*$", "", s)
     # - 末尾の特定のキーワード以降
     s = re.sub(r"\s+(?:決定戦|SP|スペシャル|総集編|見どころ|オリジナル版|特別編).*$", "", s)
 
