@@ -77,7 +77,7 @@ class ViewBase(BaseModel):
     model_config = {"slots": True}
     viewed_time: datetime
     created_at: datetime
-    speed: float = 1.0
+    speed: float | None = 1.0
 
 class ViewGet(ViewBase):
     program_id: int | str
