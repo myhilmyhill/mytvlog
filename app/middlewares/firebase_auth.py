@@ -27,12 +27,13 @@ class FirebaseAuthMiddleware(BaseHTTPMiddleware):
             try:
                 decoded = auth.verify_session_cookie(session_cookie, check_revoked=True)
                 request.state.user = decoded
-                return await call_next(request)
             except Exception as e:
                 if VERBOSE:
                     traceback.print_exc()
                 else:
                     print(f"{e.__class__.__name__}: {e}")
+            else:
+                return await call_next(request)
 
         # ✅ 2. Authorizationヘッダー (Bearer) で認証
         auth_header = request.headers.get("Authorization")
@@ -41,11 +42,15 @@ class FirebaseAuthMiddleware(BaseHTTPMiddleware):
             try:
                 decoded = auth.verify_id_token(token)
                 request.state.user = decoded
-                return await call_next(request)
             except Exception as e:
                 if VERBOSE:
                     traceback.print_exc()
                 else:
                     print(f"{e.__class__.__name__}: {e}")
+            else:
+                return await call_next(request)
+
+        if path.startswith("/api/"):
+            return HTMLResponse(status_code=401, content="Unauthorized")
 
         return RedirectResponse(url="/")

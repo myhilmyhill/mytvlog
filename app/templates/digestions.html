@@ -94,7 +94,7 @@
           <button class="play">再生</button>
         <dt>file_folder
         <dd>
-          <input class="file-folder" type="text" list="roots">
+          <input class="file-folder" type="text">
           <button onclick="patchFileFolder(this)">移動</button>
           <button onclick="patchWatchedAndFileFolder(this)">移動＋視聴済み</button>
         <dt>op
@@ -105,9 +105,5 @@
       </dl>
     </section>
   </template>
-
-  <datalist id="roots">
-    <option value="{{ dst_root }}">
-  </datalist>
 </dialog>
 {% endblock %}

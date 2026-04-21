@@ -73,7 +73,8 @@ async def extract_series_title_llm(raw: str, github_token: str) -> str:
             result = json.loads(content)
             return result.get("title")
         except Exception as e:
-            print(f"Failed to extract title with LLM: {e}")
+            print(f"Failed to extract title with LLM:")
+            print(e)
             if 'response' in locals():
                 print(f"Raw Response Content: {response.text}")
             return None

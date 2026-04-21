@@ -310,12 +310,14 @@ class SQLiteRecordingRepository(RecordingRepository):
             update_parts.append("deleted_at = :deleted_at")
             params["deleted_at"] = patch.deleted_at
         
+        rows_affected = 0
         if update_parts:
             query = f"UPDATE recordings SET {', '.join(update_parts)} WHERE id = :id"
-            self.con.execute(query, params)
+            cur = self.con.execute(query, params)
+            rows_affected = cur.rowcount
         
         self.con.commit()
-        return False
+        return rows_affected > 0
 
 class SQLiteSeriesRepository(SeriesRepository):
     def __init__(self, con: Connection):
@@ -337,6 +339,8 @@ class SQLiteSeriesRepository(SeriesRepository):
         return [Series(**row) for row in rows]
     
     def get_or_create(self, name: str, created_at: datetime) -> int | str:
+        if not name:
+            raise InvalidDataError(detail="Series name cannot be empty")
         cur = self.con.execute("""
             SELECT id FROM series WHERE name = ?
         """, (name,))

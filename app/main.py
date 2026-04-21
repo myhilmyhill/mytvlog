@@ -23,8 +23,6 @@ templates.env.globals["config"] = {
     "TVREMOCON_API_URL": os.getenv("TVREMOCON_API_URL", "/play")
 }
 
-dst_root = os.getenv("dst_root")
-
 @app.get("/", response_class=HTMLResponse)
 def show_auth_page(request: Request):
     return templates.TemplateResponse(
@@ -48,7 +46,7 @@ def digestions(request: Request,
     } for d in api.get_digestions(params, dig_repo)]
 
     return templates.TemplateResponse(
-        request=request, name="digestions.html", context={"digestions": digestions, "dst_root": dst_root, "params": params})
+        request=request, name="digestions.html", context={"digestions": digestions, "params": params})
 
 @app.get("/programs", response_class=HTMLResponse)
 def programs(request: Request,

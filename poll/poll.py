@@ -5,11 +5,11 @@ from datetime import datetime, timedelta, timezone
 import firebase_admin
 from firebase_admin import credentials, auth
 
-FIREBASE_API_KEY = os.environ.get("FIREBASE_API_KEY")
+FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY")
 FIREBASE_UID = "poll"
-SERVICE_ACCOUNT_PATH = os.environ.get("SERVICE_ACCOUNT_PATH", "/etc/gcp/serviceAccountKey.json")
-PORT = os.environ['PORT']
-REMOTE_URL = os.environ['REMOTE_URL']
+SERVICE_ACCOUNT_PATH = "/etc/gcp/serviceAccountKey.json"
+REMOTE_URL = os.getenv("REMOTE_URL")
+POLL_STATUS_URL = os.getenv("POLL_STATUS_URL")
 
 # --- Firebase Admin 初期化 ---
 cred = credentials.Certificate(SERVICE_ACCOUNT_PATH)
@@ -54,7 +54,7 @@ def poll_once():
     print('Polling', flush=True)
     id_token = get_id_token_for_user(FIREBASE_UID)
     try:
-        res_status = requests.get(os.environ['poll_status_url'], timeout=10)
+        res_status = requests.get(POLL_STATUS_URL, timeout=10)
         res_status.raise_for_status()
         status = res_status.json()
         if status.get("play_status") == "finished":
@@ -70,13 +70,9 @@ def poll_once():
                 "genre": status["current_content_nibble"],
             },
             "viewed_time": status["tot"],
-            "speed": status["speed"] if "speed" in status else 1.0,
+            "speed": status["speed"] / 100.0 if "speed" in status else 1.0,
         }
 
-#        try:
-#            post_view(f"http://mytvlog:{PORT}/api/views", id_token, body)
-#        except Exception as e:
-#            print(f"Local post error: {type(e).__name__}: {e}", flush=True)
         try:
             post_view(f"{REMOTE_URL}/api/views", id_token, body)
         except Exception as e:

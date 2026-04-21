@@ -1,3 +1,4 @@
+import json
 import re
 import os
 from datetime import datetime
@@ -7,6 +8,7 @@ from starlette.concurrency import run_in_threadpool
 
 from ..models.api import ProgramQueryParams, ProgramGet, Series, SeriesAddProgram, SeriesPost, SeriesWithPrograms, ViewQueryParams, ViewGet, ViewPost, RecordingQueryParams, RecordingGet, RecordingPost, RecordingPatch, SeriesQueryParams, Digestion, SeriesPatch, SeriesProgramPatch, DigestionQueryParams
 from ..dependencies import DigestionRepositoryDep, ProgramRepositoryDep, RecordingRepositoryDep, ViewRepositoryDep, SeriesRepositoryDep
+from ..pubsub import publish_to_pubsub
 from ..repositories.utils import extract_series_title, extract_series_title_llm
 from ..repositories.exceptions import InvalidDataError, NotFoundError, UnexpectedError
 
@@ -55,14 +57,14 @@ async def create_recording(item: Annotated[RecordingPost, Body()], prog_repo: Pr
     program_id = await run_in_threadpool(prog_repo.get_or_create, item.program, item.created_at, item.created_at)
     id_ = await run_in_threadpool(rec_repo.create, item, program_id)
 
-    try:
-        series_name = await extract_series_title_llm(
-            item.program.name,
-            github_token=os.getenv("GITHUB_TOKEN")
-        )
-    except Exception as e:
-        print(f"LLM extraction failed: {e}")
+    series_name = await extract_series_title_llm(
+        item.program.name,
+        github_token=os.getenv("GITHUB_TOKEN")
+    )
+    if not series_name:
         series_name = extract_series_title(item.program.name)
+    if not series_name:
+        series_name = item.program.name
 
     print(f"Extracted series name: {series_name}")
     series_id = await run_in_threadpool(series_repo.get_or_create, series_name, item.created_at)
@@ -71,15 +73,39 @@ async def create_recording(item: Annotated[RecordingPost, Body()], prog_repo: Pr
     return await run_in_threadpool(rec_repo.get_by_id, id_)
 
 @router.patch("/api/recordings/{id}")
-def patch_recording(
-        item: Annotated[RecordingPatch, Body()], id: Annotated[int | str, Path()],
-        response: Response,
-        rec_repo: RecordingRepositoryDep):
+async def patch_recording(item: Annotated[RecordingPatch, Body()],
+                          id: Annotated[int | str, Path()],
+                          response: Response,
+                          rec_repo: RecordingRepositoryDep):
     try:
-        accepted = rec_repo.update_patch(id, item)
+        old_rec = await run_in_threadpool(rec_repo.get_by_id, id)
+        if not old_rec:
+            raise HTTPException(status_code=404, detail="Recording not found")
+
+        accepted = await run_in_threadpool(rec_repo.update_patch, id, item)
+        new_rec = await run_in_threadpool(rec_repo.get_by_id, id)
+
+        if item.deleted_at is not None and old_rec.file_path:
+            print(f"Publishing delete command for: {old_rec.file_path}")
+            await run_in_threadpool(publish_to_pubsub, {
+                "action": "delete",
+                "file_path": old_rec.file_path
+            })
+            accepted = True
+
+        elif item.file_folder is not None and old_rec.file_path != new_rec.file_path:
+            print(f"Publishing rename command: {old_rec.file_path} -> {new_rec.file_path}")
+            await run_in_threadpool(publish_to_pubsub, {
+                "action": "rename",
+                "old_path": old_rec.file_path,
+                "new_path": new_rec.file_path
+            })
+            accepted = True
+
         if accepted:
             response.status_code = status.HTTP_202_ACCEPTED
-        return rec_repo.get_by_id(id)
+
+        return new_rec
     except InvalidDataError as e:
         raise HTTPException(status_code=400, detail=e.detail)
     except NotFoundError as e:

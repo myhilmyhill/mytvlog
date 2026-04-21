@@ -33,14 +33,13 @@
   <dt>watched
   <dd>
     {{ recording.watched_at }}
-    <button onclick="patchWatched()">視聴済み</button>
-    <button onclick="patchUnwatched()">未視聴</button>
+    <button onclick="patchWatched('{{ recording.id }}')">視聴済み</button>
+    <button onclick="patchUnwatched('{{ recording.id }}')">未視聴</button>
   <dt>deleted
   <dd>
     {{ recording.deleted_at }}
-    <button onclick="patchDeleted()">削除</button>
-    <button onclick="patchUndeleted()">未削除</button>
+    <button onclick="patchDeleted('{{ recording.id }}')">削除</button>
+    <button onclick="patchUndeleted('{{ recording.id }}')">未削除</button>
 </dl>
-
 
 {% endblock %}
