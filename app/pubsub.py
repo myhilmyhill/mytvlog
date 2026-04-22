@@ -21,7 +21,11 @@ def publish_to_pubsub(data: dict):
         return
     message_data = json.dumps(data).encode("utf-8")
     try:
+        print(f"Publishing to {topic_path}: {data}")
         future = publisher.publish(topic_path, data=message_data)
-        return future
+        message_id = future.result()
+        print(f"Published message ID: {message_id}")
+        return message_id
     except Exception as e:
         print(f"Failed to publish to PubSub: {e}")
+
