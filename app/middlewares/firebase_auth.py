@@ -1,20 +1,18 @@
 from fastapi import Request
 from starlette.responses import HTMLResponse, RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
-import firebase_admin
-from firebase_admin import credentials, auth
 import os
 import traceback
 
 SESSION_COOKIE_NAME = "session"
-SERVICE_ACCOUNT_KEY_PATH = "/etc/gcp/serviceAccountKey.json"
 VERBOSE = os.getenv("VERBOSE", "").lower() == "true"
-
-from ..firebase import initialize_firebase
-initialize_firebase()
 
 class FirebaseAuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
+        from firebase_admin import auth
+        from ..firebase import initialize_firebase
+        initialize_firebase()
+
         path = request.url.path
 
         # 🔓 認証スキップ対象のパス

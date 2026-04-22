@@ -80,9 +80,11 @@ class ViewBase(BaseModel):
     speed: float | None = 1.0
 
 class ViewGet(ViewBase):
+    model_config = {"slots": True}
     program_id: int | str
 
 class ViewPost(ViewBase):
+    model_config = {"slots": True}
     program: ProgramBase
     created_at: datetime = datetime.now(timezone.utc)
 
@@ -118,6 +120,7 @@ class RecordingGet(RecordingBase):
         return s[3] if len(s) > 3 else None
 
 class RecordingPost(RecordingBase):
+    model_config = {"slots": True}
     file_folder: str | None = None
     file_size: int | None = None
     watched_at: datetime | None = None
@@ -125,6 +128,7 @@ class RecordingPost(RecordingBase):
     created_at: datetime = datetime.now(timezone.utc)
 
 class RecordingPatch(BaseModel):
+    model_config = {"slots": True}
     file_path: str | None = Field(
         default=None,
         title="変更しても、実際のファイルの場所は移動されません。file_folder, deleted_at と同時に設定できません",
@@ -154,17 +158,21 @@ class SeriesQueryParams(BaseModel):
     size: int = Query(default=100)
 
 class SeriesPost(BaseModel):
+    model_config = {"slots": True}
     name: str
     created_at: datetime = datetime.now(timezone.utc)
 
 # add_program_to_series
 class SeriesAddProgram(BaseModel):
+    model_config = {"slots": True}
     program_id: int | str
 
 class SeriesPatch(BaseModel):
+    model_config = {"slots": True}
     name: str
 
 class SeriesProgramPatch(BaseModel):
+    model_config = {"slots": True}
     series_name: str
 
 class DigestionQueryParams(BaseModel):
