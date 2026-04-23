@@ -1,21 +1,28 @@
 from typing import Annotated
 from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.gzip import GZipMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
 
 import os
 from .dependencies import DigestionRepositoryDep, ProgramRepositoryDep, RecordingRepositoryDep, SeriesRepositoryDep, ViewRepositoryDep
-from .middlewares.firebase_auth import FirebaseAuthMiddleware
-from .routers import api, auth
+from .middlewares.github_auth import GithubAuthMiddleware
+from .routers import api
 from .routers.auth import github
 
 app = FastAPI()
 app.add_middleware(GZipMiddleware, minimum_size=500)
-app.add_middleware(FirebaseAuthMiddleware)
+app.add_middleware(
+    SessionMiddleware, 
+    secret_key=os.getenv("GITHUB_CLIENT_SECRET"),
+    session_cookie="oauth_session",
+    same_site="lax",
+    https_only=True
+)
+app.add_middleware(GithubAuthMiddleware)
 app.include_router(api.router)
-app.include_router(auth.router)
 app.include_router(github.router)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
@@ -26,10 +33,7 @@ templates.env.globals["config"] = {
 @app.get("/", response_class=HTMLResponse)
 def show_auth_page(request: Request):
     return templates.TemplateResponse(
-        request=request, name="auth.html", context={
-            "api_key": os.environ["IDENTITY_PLATFORM_API_KEY"],
-            "auth_domain": os.environ["IDENTITY_PLATFORM_AUTH_DOMAIN"],
-        },
+        request=request, name="auth.html", context={},
         headers={
             "Cache-Control": "public, max-age=2592000"
         })

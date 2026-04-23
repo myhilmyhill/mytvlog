@@ -19,10 +19,10 @@ services:
     env_file: .dev.env
     restart: no
 
-  pubsub-smb-controller:
+  pubsub-smb-controller-dev:
     build: ./pubsub-smb-controller
     init: true
     volumes:
       - ./pubsub-smb-controller/serviceAccountKey.json:/etc/gcp/serviceAccountKey.json
     env_file: ./pubsub-smb-controller/.dev.env
-    restart: unless-stopped
+    restart: no

@@ -4,8 +4,8 @@
 FROM python:3.13-slim AS base
 
 RUN pip install \
-    fastapi jinja2 uvicorn pytest httpx \
-    google-cloud-bigquery google-cloud-pubsub firebase-admin
+    fastapi jinja2 uvicorn pytest httpx itsdangerous PyJWT \
+    google-cloud-bigquery google-cloud-pubsub
 
 COPY ./app /app/app
 COPY ./db/sqlite/schemas.sql /app/db/sqlite/schemas.sql
