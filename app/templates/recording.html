@@ -38,7 +38,7 @@
   <dt>deleted
   <dd>
     {{ recording.deleted_at }}
-    <button onclick="patchDeleted('{{ recording.id }}')">削除</button>
+    <button onclick="confirm() && patchDeleted('{{ recording.id }}')">削除</button>
     <button onclick="patchUndeleted('{{ recording.id }}')">未削除</button>
 </dl>
 
