@@ -7,9 +7,6 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 REMOTE_URL = os.getenv("REMOTE_URL")
 POLL_STATUS_URL = os.getenv("POLL_STATUS_URL")
 
-def get_auth_token() -> str:
-    return GITHUB_TOKEN
-
 def post_view(url: str, id_token: str, body: dict):
     res = requests.post(
         url,
@@ -37,7 +34,6 @@ def sleep_until_next_interval(interval_minutes, delay_seconds):
 
 def poll_once():
     print('Polling', flush=True)
-    id_token = get_auth_token()
     try:
         res_status = requests.get(POLL_STATUS_URL, timeout=10)
         res_status.raise_for_status()
@@ -59,7 +55,7 @@ def poll_once():
         }
 
         try:
-            post_view(f"{REMOTE_URL}/api/views", id_token, body)
+            post_view(f"{REMOTE_URL}/api/views", GITHUB_TOKEN, body)
         except Exception as e:
             print(f"Remote post error: {type(e).__name__}: {e}", flush=True)
 
