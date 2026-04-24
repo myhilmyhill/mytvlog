@@ -4,40 +4,18 @@ from datetime import datetime, timedelta
 from fastmcp import FastMCP
 import edcb
 import os
-import firebase_admin
-from firebase_admin import credentials, auth
 
 mcp = FastMCP("mytvrecommender")
-PORT = os.environ["PORT"]
-MYTVLOG_API_BASE = f"http://mytvlog:{PORT}"
+MYTVLOG_API_BASE = os.environ["MYTVLOG_API_BASE"]
 EDCB_SERVER = os.environ["EDCB_SERVER"]
 EDCB_PORT = os.getenv("EDCB_PORT", "4510")
+GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
 
-FIREBASE_API_KEY = os.environ["FIREBASE_API_KEY"]
-FIREBASE_UID = "mytvrecommender"
-SERVICE_ACCOUNT_PATH = os.getenv("SERVICE_ACCOUNT_PATH", "/etc/gcp/serviceAccountKey.json")
-PORT = os.environ['PORT']
-REMOTE_URL = os.environ['REMOTE_URL']
-
-# --- Firebase Admin 初期化 ---
-cred = credentials.Certificate(SERVICE_ACCOUNT_PATH)
-firebase_admin.initialize_app(cred)
-
-def get_id_token_for_user(uid: str) -> str:
-    custom_token = auth.create_custom_token(uid)
-    url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key={FIREBASE_API_KEY}"
-    res = httpx.post(url, json={
-        "token": custom_token.decode(),
-        "returnSecureToken": True
-    })
-    res.raise_for_status()
-    return res.json()["idToken"]
-
-async def make_request(url: str, id_token: str) -> dict[str, Any] | None:
+async def make_request(url: str) -> dict[str, Any] | None:
     headers = {
         "Accept": "application/json",
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {id_token}",
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
     }
     async with httpx.AsyncClient() as client:
         try:
@@ -52,9 +30,8 @@ async def make_request(url: str, id_token: str) -> dict[str, Any] | None:
 async def get_viewed_programs() -> list:
     """最近見た・録画した番組情報を100件取得します
     """
-    id_token = get_id_token_for_user(FIREBASE_UID)
     url = f"{MYTVLOG_API_BASE}/api/programs?size=100"
-    return await make_request(url, id_token)
+    return await make_request(url)
 
 def extract_unique_epg_info(epg_data):
     seen_keys = set()

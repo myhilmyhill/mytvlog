@@ -1,3 +1,3 @@
 FROM python:3.13-slim
 
-RUN pip install requests firebase-admin
+RUN pip install requests

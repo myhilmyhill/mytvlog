@@ -17,3 +17,26 @@ services:
       - ./pubsub-smb-controller/serviceAccountKey.json:/etc/gcp/serviceAccountKey.json
     env_file: ./pubsub-smb-controller/.env
     restart: unless-stopped
+
+  mytvrecommender:
+    build: ./mytvrecommender
+    init: true
+    env_file: ./mytvrecommender/.env
+    ports:
+      - "3001:3001"
+    develop:
+      # Create a `watch` configuration to update the app
+      # https://docs.docker.com/compose/file-watch/#compose-watch-versus-bind-mounts
+      watch:
+        # Sync the working directory with the `/app` directory in the container
+        - action: sync
+          path: ./mytvrecommender
+          target: /app
+          # Exclude the project virtual environment — it could be for a
+          # different platform in the container
+          ignore:
+            - ./mytvrecommender/venv/
+
+        # Rebuild the image if dependencies change by checking uv.lock
+        - action: rebuild
+          path: ./mytvrecommender/uv.lock
