@@ -12,6 +12,9 @@ class ProgramRepository(ABC):
     @abstractmethod
     def get_or_create(self, program: ProgramBase, created_at: datetime, viewed_time: datetime) -> int | str: ...
 
+    @abstractmethod
+    def update(self, id: int | str, genre: str | None) -> None: ...
+
 class ViewRepository(ABC):
     @abstractmethod
     def search(self, params: ViewQueryParams) -> list[ViewGet]: ...

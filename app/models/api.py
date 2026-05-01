@@ -34,6 +34,10 @@ class ProgramBase(BaseModel):
     genre: str | None = None
     created_at: datetime | None = None
 
+class ProgramPatch(BaseModel):
+    model_config = {"slots": True}
+    genre: str | None = None
+
 class ProgramGetBase(ProgramBase):
     id: int | str
     created_at: datetime

@@ -104,6 +104,10 @@ class SQLiteProgramRepository(ProgramRepository):
         self.con.commit()
         return cur.lastrowid
 
+    def update(self, id: int, genre: str | None) -> None:
+        self.con.execute("UPDATE programs SET genre = ? WHERE id = ?", (genre, id))
+        self.con.commit()
+
 class SQLiteViewRepository(ViewRepository):
     def __init__(self, con: Connection):
         self.con = con

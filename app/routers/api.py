@@ -6,7 +6,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Path, Body, HTTPException, Response, status
 from starlette.concurrency import run_in_threadpool
 
-from ..models.api import ProgramQueryParams, ProgramGet, Series, SeriesAddProgram, SeriesPost, SeriesWithPrograms, ViewQueryParams, ViewGet, ViewPost, RecordingQueryParams, RecordingGet, RecordingPost, RecordingPatch, SeriesQueryParams, Digestion, SeriesPatch, SeriesProgramPatch, DigestionQueryParams
+from ..models.api import ProgramQueryParams, ProgramGet, ProgramPatch, Series, SeriesAddProgram, SeriesPost, SeriesWithPrograms, ViewQueryParams, ViewGet, ViewPost, RecordingQueryParams, RecordingGet, RecordingPost, RecordingPatch, SeriesQueryParams, Digestion, SeriesPatch, SeriesProgramPatch, DigestionQueryParams
 from ..dependencies import DigestionRepositoryDep, ProgramRepositoryDep, RecordingRepositoryDep, ViewRepositoryDep, SeriesRepositoryDep
 from ..pubsub import publish_to_pubsub
 from ..repositories.utils import extract_series_title, extract_series_title_llm
@@ -27,9 +27,13 @@ def get_program(id: int | str, repo: ProgramRepositoryDep):
     return program
 
 @router.post("/api/programs")
-@router.patch("/api/programs/{id}")
 def create_program():
     raise NotImplementedError
+
+@router.patch("/api/programs/{id}", response_model=ProgramGet)
+def patch_program(id: int | str, item: ProgramPatch, repo: ProgramRepositoryDep):
+    repo.update(id, item.genre)
+    return repo.get_by_id(id)
 
 @router.get("/api/views", response_model=list[ViewGet])
 def get_views(params: Annotated[ViewQueryParams, Depends()], view_repo: ViewRepositoryDep):

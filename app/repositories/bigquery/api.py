@@ -142,6 +142,16 @@ LIMIT @size OFFSET @offset
 
         return new_id
 
+    def update(self, id: str, genre: str | None) -> None:
+        self.client.query("""
+            UPDATE programs
+            SET genre = @genre
+            WHERE id = @id
+            """, job_config=self._make_query_job_config(query_parameters=[
+                bigquery.ScalarQueryParameter("genre", "STRING", genre),
+                bigquery.ScalarQueryParameter("id", "STRING", id),
+        ])).result()
+
 class BigQueryViewRepository(BigQueryBaseRepository, ViewRepository):
     def __init__(self, client: bigquery.Client, dataset_id: str):
         super().__init__(client, dataset_id)

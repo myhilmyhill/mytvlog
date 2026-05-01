@@ -19,7 +19,8 @@
   <dt>ext_text
   <dd>{{ program.ext_text }}
   <dt>genre
-  <dd>{{ program.genre }}
+  <dd><input type="text" id="genre-input" value="{{ program.genre or '' }}">
+      <button onclick="saveGenre()">Save</button>
   <dt>created_at
   <dd>{{ program.created_at }}
   <dt>viewed_times
@@ -36,5 +37,23 @@
     {% endfor %}
     </ul>
 </dl>
+
+<script>
+async function saveGenre() {
+    const genre = document.getElementById('genre-input').value;
+    const response = await fetch(`/api/programs/{{ program.id }}`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ genre: genre })
+    });
+    if (response.ok) {
+        alert('Saved!');
+    } else {
+        alert('Failed to save: ' + await response.text());
+    }
+}
+</script>
 
 {% endblock %}
