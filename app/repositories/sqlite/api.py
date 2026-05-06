@@ -71,20 +71,40 @@ class SQLiteProgramRepository(ProgramRepository):
     def get_or_create(self, program: ProgramBase, created_at: datetime, viewed_time: datetime) -> int:
         cur = self.con.cursor()
         cur.execute("""
-            SELECT id, duration, created_at AS "created_at [timestamp]"
+            SELECT id, start_time AS "start_time [timestamp]", duration, created_at AS "created_at [timestamp]"
             FROM programs
-            WHERE event_id = ? AND service_id = ? AND start_time = ?
+            WHERE event_id = ? AND service_id = ?
+            AND start_time >= ? AND start_time <= ?
+            ORDER BY start_time DESC
+            LIMIT 1
         """, (
             program.event_id,
             program.service_id,
-            program.start_time,
+            program.start_time - timedelta(hours=12),
+            program.start_time + timedelta(hours=12),
         ))
         row = cur.fetchone()
 
         if row:
-            id, duration, c = row
-            if duration != program.duration and c < viewed_time:
-                cur.execute("UPDATE programs SET duration = ? WHERE id = ?", (program.duration, id))
+            id, start_time, duration, c = row
+            # Prioritize later start time
+            if program.start_time > start_time:
+                cur.execute("""
+                    UPDATE programs
+                    SET start_time = ?, duration = ?, name = ?, text = ?, ext_text = ?, genre = ?
+                    WHERE id = ?
+                """, (
+                    program.start_time,
+                    program.duration,
+                    program.name,
+                    program.text,
+                    program.ext_text,
+                    program.genre,
+                    id
+                ))
+            elif program.start_time == start_time:
+                if duration != program.duration and c < viewed_time:
+                    cur.execute("UPDATE programs SET duration = ? WHERE id = ?", (program.duration, id))
             return id
 
         cur.execute("""

@@ -614,6 +614,84 @@ def test_create_recording(con, client):
         },
     }
 
+def test_create_recording_delay_prioritizes_later_start_time(con, client):
+    # 1. First register with LATER start time (e.g. from views)
+    client.post("/api/views", json={
+        "program": {
+            "event_id": 11,
+            "service_id": 101,
+            "name": "Test Program",
+            "start_time": "2025-05-12T12:10:00+09:00", # Delayed
+            "duration": 1800,
+            "text": "Text",
+            "ext_text": "Ext Text",
+            "genre": None,
+        },
+        "viewed_time": "2025-05-12T12:15:00+09:00",
+    })
+    
+    # 2. Then register recording with OLD (earlier) start time
+    response = client.post("/api/recordings", json={
+        "program": {
+            "event_id": 11,
+            "service_id": 101,
+            "name": "Test Program",
+            "start_time": "2025-05-12T12:00:00+09:00", # Old info
+            "duration": 1800,
+            "text": "Text",
+            "ext_text": "Ext Text",
+            "genre": None,
+        },
+        "file_path": "//server/recorded/test1",
+        "created_at": "2025-05-12T12:30:00+09:00",
+    })
+    
+    assert response.status_code == 200
+    # Should have returned the LATER start time even though requested with EARLIER one
+    assert response.json()["program"]["start_time"] == "2025-05-12T12:10:00+09:00"
+    
+    # 3. Check if DB record was NOT downgraded to earlier time
+    program = client.get("/api/programs/1").json()
+    assert program["start_time"] == "2025-05-12T12:10:00+09:00"
+
+def test_create_recording_delay_updates_to_later_start_time(con, client):
+    # 1. First register with EARLIER start time
+    client.post("/api/recordings", json={
+        "program": {
+            "event_id": 11,
+            "service_id": 101,
+            "name": "Test Program",
+            "start_time": "2025-05-12T12:00:00+09:00",
+            "duration": 1800,
+            "text": "Text",
+            "ext_text": "Ext Text",
+            "genre": None,
+        },
+        "file_path": "//server/recorded/test1",
+        "created_at": "2025-05-12T12:30:00+09:00",
+    })
+    
+    # 2. Then register view with LATER (updated) start time
+    response = client.post("/api/views", json={
+        "program": {
+            "event_id": 11,
+            "service_id": 101,
+            "name": "Test Program",
+            "start_time": "2025-05-12T12:10:00+09:00", # Delayed
+            "duration": 1800,
+            "text": "Text",
+            "ext_text": "Ext Text",
+            "genre": None,
+        },
+        "viewed_time": "2025-05-12T12:15:00+09:00",
+    })
+    
+    assert response.status_code == 200
+    
+    # 3. Check if DB record was updated to LATER time
+    program = client.get("/api/programs/1").json()
+    assert program["start_time"] == "2025-05-12T12:10:00+09:00"
+
 @pytest.mark.parametrize("in_file_path", INVALID_FILE_PATHS)
 def test_create_recordings_file_path_指定書式以外は例外(in_file_path, con, client):
     response = client.post("/api/recordings", json={

@@ -91,11 +91,14 @@ LIMIT @size OFFSET @offset
 
     def get_or_create(self, program: ProgramBase, created_at: datetime, viewed_time: datetime) -> int:
         job = self.client.query("""
-            SELECT id, duration, created_at
+            SELECT id, start_time, duration, created_at
             FROM programs
             WHERE event_id = @event_id
             AND service_id = @service_id
-            AND start_time = @start_time
+            AND start_time >= TIMESTAMP_SUB(@start_time, INTERVAL 12 HOUR)
+            AND start_time <= TIMESTAMP_ADD(@start_time, INTERVAL 12 HOUR)
+            ORDER BY start_time DESC
+            LIMIT 1
             """, job_config=self._make_query_job_config(query_parameters=[
                 bigquery.ScalarQueryParameter("event_id", "INT64", program.event_id),
                 bigquery.ScalarQueryParameter("service_id", "INT64", program.service_id),
@@ -104,16 +107,37 @@ LIMIT @size OFFSET @offset
         row = next(job.result(), None)
 
         if row:
-            id_, duration, created_at_in_db = row
-            if duration != program.duration and created_at_in_db < viewed_time:
+            id_, start_time, duration, created_at_in_db = row
+            # Prioritize later start time
+            if program.start_time > start_time:
                 self.client.query("""
                     UPDATE programs
-                    SET duration = @new_duration
+                    SET start_time = @new_start_time,
+                        duration = @new_duration,
+                        name = @new_name,
+                        text = @new_text,
+                        ext_text = @new_ext_text,
+                        genre = @new_genre
                     WHERE id = @id
                     """, job_config=self._make_query_job_config(query_parameters=[
+                        bigquery.ScalarQueryParameter("new_start_time", "TIMESTAMP", program.start_time),
                         bigquery.ScalarQueryParameter("new_duration", "INT64", program.duration),
+                        bigquery.ScalarQueryParameter("new_name", "STRING", program.name),
+                        bigquery.ScalarQueryParameter("new_text", "STRING", program.text),
+                        bigquery.ScalarQueryParameter("new_ext_text", "STRING", program.ext_text),
+                        bigquery.ScalarQueryParameter("new_genre", "STRING", program.genre),
                         bigquery.ScalarQueryParameter("id", "STRING", id_)
                 ])).result()
+            elif program.start_time == start_time:
+                if duration != program.duration and created_at_in_db < viewed_time:
+                    self.client.query("""
+                        UPDATE programs
+                        SET duration = @new_duration
+                        WHERE id = @id
+                        """, job_config=self._make_query_job_config(query_parameters=[
+                            bigquery.ScalarQueryParameter("new_duration", "INT64", program.duration),
+                            bigquery.ScalarQueryParameter("id", "STRING", id_)
+                    ])).result()
             return id_
 
         new_id = str(uuid.uuid4())
