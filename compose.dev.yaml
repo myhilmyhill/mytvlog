@@ -16,6 +16,7 @@ services:
     environment:
       TZ: Asia/Tokyo
       PORT: 8001
+      GOOGLE_APPLICATION_CREDENTIALS: /etc/gcp/serviceAccountKey.json
     env_file: .dev.env
     restart: no
 
