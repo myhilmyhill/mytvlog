@@ -12,5 +12,7 @@ COPY . /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-dev
 ENV PATH="/app/.venv/bin:$PATH"
+RUN useradd -m appuser && chown -R appuser:appuser /app
+USER appuser
 ENTRYPOINT []
 CMD ["uv", "run", "main.py"]
