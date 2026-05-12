@@ -52,6 +52,7 @@
           min="{{ r.program.start_time_ms }}"
           max="{{ r.program.end_time_ms }}"
           data="{{ r.program.viewed_times_ms | tojson }}"
+          width="600000"
         ></marker-plot>
       <td>
         <button onclick="deleteInPlace(this, '{{ r.id }}')" {{ 'disabled' if r.deleted_at }}>Del</button>
