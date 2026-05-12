@@ -114,7 +114,7 @@ class RecordingBase(BaseModel):
     created_at: datetime
 
 class RecordingGet(RecordingBase):
-    program: ProgramGetBase
+    program: ProgramGet
     id: int | str
 
     @computed_field

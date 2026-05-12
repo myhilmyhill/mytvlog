@@ -79,7 +79,7 @@ LIMIT @size OFFSET @offset
             p.genre,
             p.created_at,
             (SELECT TO_JSON_STRING(ARRAY_AGG(viewed_time)) FROM views WHERE views.program_id = p.id) AS viewed_times_json,
-            (SELECT TO_JSON_STRING(ARRAY_AGG(id)) FROM recordings WHERE recordings.program_id = p.id) AS recordings_json
+            (SELECT TO_JSON_STRING(ARRAY_AGG(id)) FROM recordings WHERE recordings.program_id = p.id AND recordings.deleted_at IS NULL) AS recordings_json
             FROM programs p
             WHERE p.id = @id
             """,
@@ -248,7 +248,9 @@ class BigQueryRecordingRepository(BigQueryBaseRepository, RecordingRepository):
                 p.text,
                 p.ext_text,
                 p.genre,
-                p.created_at AS program_created_at
+                p.created_at AS program_created_at,
+                (SELECT TO_JSON_STRING(ARRAY_AGG(viewed_time)) FROM views WHERE views.program_id = p.id) AS viewed_times_json,
+                (SELECT TO_JSON_STRING(ARRAY_AGG(id)) FROM recordings WHERE recordings.program_id = p.id) AS recordings_json
             FROM recordings r
             JOIN programs p ON p.id = r.program_id
             WHERE
@@ -274,8 +276,8 @@ class BigQueryRecordingRepository(BigQueryBaseRepository, RecordingRepository):
         return [
             RecordingGet(
                 **extract_model_fields(RecordingGet, row),
-                program=ProgramGetBase(
-                    **extract_model_fields(ProgramGetBase, row, aliases={
+                program=ProgramGet(
+                    **extract_model_fields(ProgramGet, row, aliases={
                         "created_at": "program_created_at",
                         "id": "program_id",
                     })
@@ -301,7 +303,9 @@ class BigQueryRecordingRepository(BigQueryBaseRepository, RecordingRepository):
                 p.text,
                 p.ext_text,
                 p.genre,
-                p.created_at AS program_created_at
+                p.created_at AS program_created_at,
+                (SELECT TO_JSON_STRING(ARRAY_AGG(viewed_time)) FROM views WHERE views.program_id = p.id) AS viewed_times_json,
+                (SELECT TO_JSON_STRING(ARRAY_AGG(id)) FROM recordings WHERE recordings.program_id = p.id) AS recordings_json
             FROM recordings r
             JOIN programs p ON p.id = r.program_id
             WHERE r.id = @id
@@ -313,8 +317,8 @@ class BigQueryRecordingRepository(BigQueryBaseRepository, RecordingRepository):
 
         return RecordingGet(
             **extract_model_fields(RecordingGet, row),
-            program=ProgramGetBase(
-                **extract_model_fields(ProgramGetBase, row, aliases={
+            program=ProgramGet(
+                **extract_model_fields(ProgramGet, row, aliases={
                     "created_at": "program_created_at",
                     "id": "program_id",
                 })

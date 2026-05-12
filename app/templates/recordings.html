@@ -3,38 +3,18 @@
 <script>
   'use strict'
   function $(q) { return document.querySelector(q) }
-  async function patch(json) {
-    return (await fetch(`/api/recordings/${$('#id').textContent}`, {
+  function patch(json, id) {
+    return fetch(`/api/recordings/${id}`, {
       headers: { 'Content-Type': 'application/json' },
       method: 'PATCH',
       body: JSON.stringify(json),
-    })).ok
+    })
   }
-  async function openDialog(id) {
-    $('#id').textContent = id
-    const r = await(await fetch(`/api/recordings/${id}`)).json()
-    $('#file-path').value = r.file_path
-    $('#name').textContent = r.program.name
-    $('#date').textContent = r.program.start_time
-    $('#created-at').textContent = r.created_at
-    $('#watched-at').textContent = r.watched_at
-    $('#deleted-at').textContent = r.deleted_at
-    $('#folder').value = r.file_folder
-
-    const vs = await(await fetch(`/api/views?program_id=${r.program.id}`)).json()
-    $('#marker-plot').setAttribute('min', new Date(r.program.start_time).getTime())
-    $('#marker-plot').setAttribute('max', new Date(r.program.end_time).getTime())
-    $('#marker-plot').setAttribute('data', JSON.stringify(vs.map(v => new Date(v.viewed_time).getTime())))
-    $('#marker-plot').setAttribute('width', 600_000)
-    $('#marker-plot').render()
-    $('#op').showModal()
+  async function deleteInPlace(btn, id) {
+    if (!confirm()) return
+    btn.disabled = true
+    await patch({ deleted_at: new Date().toISOString() }, id)
   }
-  function patchFilePath() { patch({ file_path: $('#file-path').value }).then(() => location.reload()) }
-  function patchFileFolder() { patch({ file_folder: $('#folder').value }).then(() => location.reload()) }
-  function patchWatched() { patch({ watched_at: new Date().toISOString() }).then(() => location.reload()) }
-  function patchDeleted() { patch({ deleted_at: new Date().toISOString() }).then(() => location.reload()) }
-  function patchUnwatched() { patch({ watched_at: null }).then(() => location.reload()) }
-  function patchUndeleted() { patch({ deleted_at: null }).then(() => location.reload()) }
 </script>
 
 <h1>Recordings</h1>
@@ -55,60 +35,40 @@
   <thead>
     <tr>
       <th>id
-      <th>program_id
       <th>name
-      <th>op
-      <th>watched
-      <th>deleted
+      <th>marker_plot
+      <th>
+      <th>W
+      <th>D
       <th>file_folder
       <th>file_size
   <tbody>
   {% for r in recordings %}
     <tr>
       <td><a href="{{ url_for('recording', id=r.id) }}">{{ r.id }}</a>
-      <td><a href="{{ url_for('program', id=r.program.id) }}">{{ r.program.id }}</a>
-      <td>{{ r.program.name }}
-      <td><button onclick="openDialog('{{ r.id }}')">⋮</button>
-      <td>{{ 1 if r.watched_at }}
-      <td>{{ 1 if r.deleted_at }}
+      <td><a href="{{ url_for('program', id=r.program.id) }}">{{ r.program.name }}</a>
+      <td>
+        <marker-plot
+          min="{{ r.program.start_time_ms }}"
+          max="{{ r.program.end_time_ms }}"
+          data="{{ r.program.viewed_times_ms | tojson }}"
+        ></marker-plot>
+      <td>
+        <button onclick="deleteInPlace(this, '{{ r.id }}')" {{ 'disabled' if r.deleted_at }}>Del</button>
+      <td>{{ 'W' if r.watched_at }}
+      <td>{{ 'D' if r.deleted_at }}
       <td>{{ r.file_folder if r.file_folder }}
       <td>{{ r.file_size|filesizeformat if r.file_size }}
   {% endfor %}
 </table>
+<form>
+  <input type="hidden" name="from_" value="{{ request.query_params.from_ or '' }}">
+  <input type="hidden" name="to" value="{{ request.query_params.to or '' }}">
+  {% if request.query_params.watched %}<input type="hidden" name="watched" value="on">{% endif %}
+  {% if request.query_params.deleted %}<input type="hidden" name="deleted" value="on">{% endif %}
+  <input type="hidden" name="file_folder" value="{{ request.query_params.file_folder or '' }}">
+  <input type="hidden" name="page" value="{{ params.page + 1 }}">
+  <button type="submit">次</button>
+</form>
 
-<dialog id="op" closedby="any">
-  <h2 id="name"></h2>
-  <dl>
-    <dt>id
-    <dd id="id">
-    <dt>start_time
-    <dd id="date">
-    <dt>created_at
-    <dd id="created-at">
-    <dt>file_path
-    <dd>
-      <input id="file-path" type="text">
-      <button onclick="patchFilePath()">変更</button>
-      <button onclick="play($('#file-path').value)">再生</button>
-    <dt>file_folder
-    <dd>
-      <input id="folder" type="text" list="roots">
-      <datalist id="roots">
-        {% for v in ["ammann"] %}<option value="{{ v }}">{% endfor %}
-      </datalist>
-      <button onclick="patchFileFolder()">移動</button>
-    <dt>watched_at
-    <dd>
-      <time id="watched-at"></time>
-      <button id="watch" onclick="patchWatched()">視聴済み</button>
-      <button id="unwatch" onclick="patchUnwatched()">解除</button>
-    <dt>deleted_at
-    <dd>
-      <time id="deleted-at"></time>
-      <button id="delete" onclick="confirm() && patchDeleted()">削除</button>
-      <button id="undelete" onclick="patchUndeleted()">解除</button>
-    <dt>marker_plot
-      <dd><marker-plot id="marker-plot"></marker-plot>
-  </dl>
-</dialog>
 {% endblock %}

@@ -61,7 +61,7 @@ class SQLiteProgramRepository(ProgramRepository):
             , genre
             , created_at AS "created_at [timestamp]"
             , (SELECT json_group_array(viewed_time) FROM views WHERE views.program_id = programs.id) AS viewed_times_json
-            , (SELECT json_group_array(id) FROM recordings WHERE recordings.program_id = programs.id) AS recordings_json
+            , (SELECT json_group_array(id) FROM recordings WHERE recordings.program_id = programs.id AND recordings.deleted_at IS NULL) AS recordings_json
             FROM programs
             WHERE id = ?
         """, (id,))
@@ -192,6 +192,8 @@ class SQLiteRecordingRepository(RecordingRepository):
             , programs.ext_text
             , programs.genre
             , programs.created_at AS "program_created_at [timestamp]"
+            , (SELECT json_group_array(viewed_time) FROM views WHERE views.program_id = programs.id) AS viewed_times_json
+            , (SELECT json_group_array(id) FROM recordings AS r2 WHERE r2.program_id = programs.id AND r2.deleted_at IS NULL) AS recordings_json
             FROM recordings INNER JOIN programs ON programs.id = recordings.program_id
             WHERE
                 TRUE
@@ -217,8 +219,8 @@ class SQLiteRecordingRepository(RecordingRepository):
         return [
             RecordingGet(
                 **extract_model_fields(RecordingGet, row),
-                program = ProgramGetBase(
-                    **extract_model_fields(ProgramGetBase, row, aliases={
+                program = ProgramGet(
+                    **extract_model_fields(ProgramGet, row, aliases={
                         "created_at": "program_created_at",
                         "id": "program_id",
                     })
@@ -246,6 +248,8 @@ class SQLiteRecordingRepository(RecordingRepository):
             , programs.ext_text
             , programs.genre
             , programs.created_at AS "program_created_at [timestamp]"
+            , (SELECT json_group_array(viewed_time) FROM views WHERE views.program_id = programs.id) AS viewed_times_json
+            , (SELECT json_group_array(id) FROM recordings AS r2 WHERE r2.program_id = programs.id AND r2.deleted_at IS NULL) AS recordings_json
             FROM recordings INNER JOIN programs ON programs.id = recordings.program_id
             WHERE recordings.id = ?
         """, (id,))
@@ -255,8 +259,8 @@ class SQLiteRecordingRepository(RecordingRepository):
 
         return RecordingGet(
             **extract_model_fields(RecordingGet, row),
-            program = ProgramGetBase(
-                **extract_model_fields(ProgramGetBase, row, aliases={
+            program = ProgramGet(
+                **extract_model_fields(ProgramGet, row, aliases={
                     "created_at": "program_created_at",
                     "id": "program_id",
                     })

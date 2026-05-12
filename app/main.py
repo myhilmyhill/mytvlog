@@ -85,10 +85,18 @@ def program(request: Request,
 def recordings(request: Request,
                params: Annotated[api.RecordingQueryParams, Depends()],
                rec_repo: RecordingRepositoryDep):
-    recordings = api.get_recordings(params, rec_repo)
+    recordings = [{
+        **r.model_dump(),
+        "program": {
+            **r.program.model_dump(),
+            "start_time_ms": int(r.program.start_time.timestamp() * 1000),
+            "end_time_ms": int(r.program.end_time.timestamp() * 1000),
+            "viewed_times_ms": [int(t.timestamp() * 1000) for t in r.program.viewed_times],
+        }
+    } for r in api.get_recordings(params, rec_repo)]
 
     return templates.TemplateResponse(
-        request=request, name="recordings.html", context={"recordings": recordings})
+        request=request, name="recordings.html", context={"recordings": recordings, "params": params})
 
 @app.get("/recordings/{id}", response_class=HTMLResponse)
 def recording(request: Request,
