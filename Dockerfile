@@ -7,15 +7,14 @@ RUN groupadd -g 1000 appuser && \
     useradd -u 1000 -g appuser -m appuser
 
 RUN pip install \
-    fastapi jinja2 uvicorn pytest httpx itsdangerous PyJWT \
+    fastapi "fastapi[standard]" jinja2 uvicorn pytest httpx itsdangerous PyJWT \
     google-cloud-bigquery google-cloud-pubsub
 
-WORKDIR /app
+WORKDIR /code
 
-COPY ./app /app/app
-COPY ./db/sqlite/schemas.sql /app/db/sqlite/schemas.sql
+COPY ./app /code/app
+COPY ./db/sqlite/schemas.sql /code/db/sqlite/schemas.sql
 COPY ./docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-COPY ./main.py /app/main.py
 
 # ######## devステージ（compose用） ########
 FROM base AS dev
@@ -27,10 +26,12 @@ FROM python:3.14-slim AS final
 RUN groupadd -g 1000 appuser && \
     useradd -u 1000 -g appuser -m appuser
 
-COPY --from=base --chown=appuser:appuser /app /app
+COPY --from=base --chown=appuser:appuser /code /code
 COPY --from=base /usr/local/lib /usr/local/lib
 COPY --from=base /usr/local/bin /usr/local/bin
 
-WORKDIR /app
+WORKDIR /code
 USER appuser
-CMD ["python3", "main.py"]
+CMD ["sh", "-c", "exec fastapi run app/main.py --port $PORT"]
+
+
