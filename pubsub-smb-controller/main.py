@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import smbclient
 import smbprotocol.exceptions
 from google.cloud import pubsub_v1
@@ -29,7 +30,8 @@ except Exception as e:
     # 初期化失敗は致命的なので再試行せず終了
     exit(1)
 
-def callback(message):
+def process_message(received_message):
+    message = received_message.message
     try:
         data = json.loads(message.data.decode('utf-8'))
         action = data.get("action")
@@ -79,16 +81,27 @@ def callback(message):
             else:
                 logger.info(f"移動 (DRY_RUN): {old_path} -> {new_path}")
 
-        message.ack()
+        subscriber.acknowledge(
+            request={
+                "subscription": SUBSCRIPTION_PATH,
+                "ack_ids": [received_message.ack_id],
+            }
+        )
     except Exception as e:
         logger.error(f"メッセージ処理中にエラーが発生しました: {e}")
         logger.debug(traceback.format_exc())
-        # 致命的なエラーでない限りはnackしてリトライさせる
-        # ただし、特定の致命的なSMBエラーなどの場合は終了を検討する
-        message.nack()
+        try:
+            subscriber.modify_ack_deadline(
+                request={
+                    "subscription": SUBSCRIPTION_PATH,
+                    "ack_ids": [received_message.ack_id],
+                    "ack_deadline_seconds": 0,
+                }
+            )
+        except Exception as ne:
+            logger.error(f"nackに失敗しました: {ne}")
 
 subscriber = pubsub_v1.SubscriberClient()
-streaming_pull_future = subscriber.subscribe(SUBSCRIPTION_PATH, callback=callback)
 
 if DRY_RUN:
     logger.info(f"DRY_RUNモードで監視を開始しました: {SUBSCRIPTION_PATH}")
@@ -97,14 +110,25 @@ else:
 
 with subscriber:
     try:
-        # 結果を待機（エラーが発生すると例外がスローされる）
-        streaming_pull_future.result()
+        while True:
+            response = subscriber.pull(
+                request={
+                    "subscription": SUBSCRIPTION_PATH,
+                    "max_messages": 10,
+                },
+                timeout=30.0,
+            )
+            if not response.received_messages:
+                time.sleep(5)
+                continue
+
+            for received_message in response.received_messages:
+                process_message(received_message)
+
     except KeyboardInterrupt:
         logger.info("ユーザーにより停止されました")
-        streaming_pull_future.cancel()
     except Exception as e:
         logger.error(f"サブスクライバーで致命的なエラーが発生しました: {e}")
         logger.error(traceback.format_exc())
-        streaming_pull_future.cancel()
         # コンテナを再起動させるために異常終了させる
         exit(1)
